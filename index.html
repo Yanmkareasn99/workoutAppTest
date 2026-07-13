@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Workout">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/icon-32.png">
+  <meta name="theme-color" content="#020617">
+  <title>Weekly Workout Tracker</title>
+  <link rel="stylesheet" href="./app.css">
+  <style>
+    :root { color-scheme: dark; }
+    html {
+      min-height: 100%;
+      background: #020617;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    body {
+      min-height: 100%;
+      min-height: 100dvh;
+      padding-top: env(safe-area-inset-top);
+      padding-right: env(safe-area-inset-right);
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      overscroll-behavior-y: none;
+      -webkit-font-smoothing: antialiased;
+    }
+    [hidden] { display: none !important; }
+    button, [role="button"] {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    input, select, textarea { font-size: 16px; }
+    dialog { max-height: calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid rgb(129 140 248 / 0.65);
+      outline-offset: 2px;
+    }
+    .timer-finished { animation: timerFlash 0.45s ease-in-out 4 alternate; }
+    @keyframes timerFlash {
+      from { color: rgb(241 245 249); transform: scale(1); }
+      to { color: rgb(251 113 133); transform: scale(1.04); }
+    }
+    @media (display-mode: standalone) {
+      .browser-only { display: none !important; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 font-sans">
+  <main class="max-w-7xl mx-auto p-4 md:p-8">
+    <header class="mb-6">
+      <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
+        <div>
+          <p class="text-xs font-bold tracking-[0.25em] uppercase text-indigo-400">Weekly Training Planner</p>
+          <h1 class="text-3xl md:text-4xl font-black tracking-tight">Workout Tracker</h1>
+        </div>
+        <div class="text-left sm:text-right">
+          <p id="selected-day-label" class="font-bold text-slate-200">Monday</p>
+          <p id="week-summary" class="text-sm text-slate-400" aria-live="polite">0 exercises this week</p>
+          <button id="install-app-btn" type="button" class="browser-only mt-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white transition-colors">Install on iPhone</button>
+        </div>
+      </div>
+
+      <section class="bg-slate-900 p-3 md:p-4 rounded-2xl border border-slate-800 shadow-xl mb-4" aria-label="Choose workout day">
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <h2 class="text-sm font-bold uppercase tracking-wide text-slate-400">Days of the week</h2>
+          <button id="today-btn" type="button" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white transition-colors">Go to today</button>
+        </div>
+        <div id="day-tabs" class="grid grid-cols-4 sm:grid-cols-7 gap-2"></div>
+      </section>
+
+      <section class="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-xl" aria-label="Daily workout progress">
+        <div class="flex justify-between items-center mb-2 gap-4">
+          <span id="progress-heading" class="text-sm font-semibold tracking-wide uppercase text-slate-400">Monday Progress</span>
+          <span id="progress-text" class="text-sm font-bold text-indigo-400">0/0 completed (0%)</span>
+        </div>
+        <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-track">
+          <div id="progress-bar" class="bg-indigo-500 h-full w-0 transition-all duration-300"></div>
+        </div>
+        <p id="session-summary" class="text-xs text-slate-500 mt-2">0 exercises • 0 sets completed</p>
+      </section>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <section class="lg:col-span-7 space-y-6">
+        <div class="bg-slate-900 p-5 md:p-6 rounded-2xl border border-slate-800 shadow-xl">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+            <div>
+              <h2 id="routine-heading" class="text-xl font-bold text-slate-200">Monday Routine</h2>
+              <p class="text-xs text-slate-500 mt-1">Each day has its own saved routine and progress.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button id="copy-routine-btn" type="button" class="px-3 py-2 rounded-lg bg-indigo-950/70 hover:bg-indigo-900 text-xs font-bold text-indigo-300 transition-colors">Copy to another day</button>
+              <button id="reset-session-btn" type="button" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-colors">Reset day</button>
+              <button id="export-btn" type="button" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-colors">Export week</button>
+              <button id="clear-routine-btn" type="button" class="px-3 py-2 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-xs font-bold text-rose-300 transition-colors">Clear day</button>
+            </div>
+          </div>
+
+          <form id="exercise-form" class="grid grid-cols-1 sm:grid-cols-12 gap-2 mb-6">
+            <label class="sm:col-span-6">
+              <span class="sr-only">Exercise name</span>
+              <input type="text" id="exercise-input" placeholder="Exercise name" maxlength="80" required
+                class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 transition-colors">
+            </label>
+            <label class="sm:col-span-2">
+              <span class="sr-only">Target sets</span>
+              <input type="number" id="sets-input" value="3" min="1" max="20" required title="Target sets"
+                class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-center text-slate-100 focus:border-indigo-500 transition-colors">
+            </label>
+            <label class="sm:col-span-2">
+              <span class="sr-only">Target reps</span>
+              <input type="number" id="reps-input" value="10" min="1" max="999" required title="Target reps"
+                class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-center text-slate-100 focus:border-indigo-500 transition-colors">
+            </label>
+            <button type="submit" class="sm:col-span-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-3 rounded-xl transition-colors">Add</button>
+            <p class="sm:col-span-12 text-xs text-slate-500">Enter exercise name, target sets, and reps for the selected day.</p>
+          </form>
+
+          <div id="routine-list" class="space-y-3 max-h-[560px] overflow-y-auto pr-1" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="lg:col-span-5">
+        <div class="bg-slate-900 p-5 md:p-6 rounded-2xl border border-slate-800 shadow-xl lg:sticky lg:top-6">
+          <div class="text-center mb-5">
+            <span id="now-training-day" class="text-xs font-bold tracking-widest uppercase text-indigo-400">Monday • Now Training</span>
+            <h2 id="active-exercise-title" class="text-2xl font-black text-slate-100 mt-1 break-words">Select an exercise</h2>
+            <p id="active-target" class="text-sm text-slate-400 mt-1">No active exercise</p>
+          </div>
+
+          <section class="bg-slate-950 rounded-2xl p-5 md:p-6 border border-slate-800 text-center mb-6 shadow-inner" aria-label="Workout timer">
+            <div id="timer-display" class="text-5xl sm:text-6xl font-mono font-black text-slate-100 tracking-wider mb-4" aria-live="polite">00:00</div>
+
+            <div class="flex justify-center gap-3">
+              <button id="timer-toggle-btn" type="button" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-xl transition-colors text-sm w-28">Start</button>
+              <button id="timer-reset-btn" type="button" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-6 py-2.5 rounded-xl transition-colors text-sm w-28">Reset</button>
+            </div>
+
+            <div class="mt-6 pt-6 border-t border-slate-800 space-y-4">
+              <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-800 max-w-xs mx-auto">
+                <button id="mode-up-btn" type="button" class="flex-1 px-3 py-2 rounded-md text-xs font-bold transition-all bg-indigo-600 text-white" aria-pressed="true">Stopwatch</button>
+                <button id="mode-down-btn" type="button" class="flex-1 px-3 py-2 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-slate-200" aria-pressed="false">Rest timer</button>
+              </div>
+
+              <div id="countdown-config" hidden class="space-y-3">
+                <div class="flex items-center justify-center gap-2 text-xs">
+                  <label for="countdown-input" class="text-slate-400 font-medium">Rest duration</label>
+                  <input type="number" id="countdown-input" value="60" min="5" max="3600" step="5"
+                    class="w-20 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-center font-bold text-slate-200 focus:border-indigo-500">
+                  <span class="text-slate-400">seconds</span>
+                </div>
+                <div class="flex flex-wrap justify-center gap-2" aria-label="Quick rest timer presets">
+                  <button type="button" data-rest="30" class="rest-preset px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold">30s</button>
+                  <button type="button" data-rest="60" class="rest-preset px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold">60s</button>
+                  <button type="button" data-rest="90" class="rest-preset px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold">90s</button>
+                  <button type="button" data-rest="120" class="rest-preset px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold">2m</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <section class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 text-center" aria-label="Sets completed">
+              <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Sets Done</span>
+              <div id="set-count" class="text-3xl font-black text-slate-100 my-2">0</div>
+              <div class="flex gap-2 justify-center">
+                <button type="button" data-metric="sets" data-change="-1" class="metric-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 w-10 h-9 rounded-lg font-bold text-lg">−</button>
+                <button type="button" data-metric="sets" data-change="1" class="metric-btn bg-indigo-600 hover:bg-indigo-500 border border-indigo-500 w-10 h-9 rounded-lg font-bold text-lg">+</button>
+              </div>
+            </section>
+
+            <section class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 text-center" aria-label="Target repetitions">
+              <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Target Reps</span>
+              <div id="rep-count" class="text-3xl font-black text-slate-100 my-2">0</div>
+              <div class="flex gap-2 justify-center">
+                <button type="button" data-metric="reps" data-change="-1" class="metric-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 w-10 h-9 rounded-lg font-bold text-lg">−</button>
+                <button type="button" data-metric="reps" data-change="1" class="metric-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 w-10 h-9 rounded-lg font-bold text-lg">+</button>
+              </div>
+            </section>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button id="complete-current-btn" type="button" class="bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold px-4 py-3 rounded-xl transition-colors">Complete current</button>
+            <button id="next-exercise-btn" type="button" class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-100 font-bold px-4 py-3 rounded-xl transition-colors">Next exercise →</button>
+          </div>
+
+          <label class="flex items-center gap-3 mt-4 p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer">
+            <input id="auto-rest-checkbox" type="checkbox" class="w-4 h-4 accent-indigo-500">
+            <span class="text-sm text-slate-300">Start rest timer automatically after adding a set</span>
+          </label>
+
+          <p id="status-message" class="mt-4 text-center text-sm text-slate-400 min-h-5" aria-live="polite"></p>
+          <p class="mt-3 text-center text-xs text-slate-600">Keyboard: Space = start/pause, R = reset timer</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+
+  <dialog id="install-dialog" class="backdrop:bg-black/70 bg-slate-900 text-slate-100 border border-slate-700 rounded-2xl p-0 w-[min(92vw,460px)] shadow-2xl">
+    <div class="p-6 overflow-y-auto">
+      <p class="text-xs font-bold tracking-[0.2em] uppercase text-indigo-400">iPhone installation</p>
+      <h2 class="text-2xl font-black mt-1">Add Workout Tracker to your Home Screen</h2>
+      <ol class="mt-5 space-y-4 text-sm text-slate-300">
+        <li class="flex gap-3"><span class="grid place-items-center shrink-0 w-7 h-7 rounded-full bg-indigo-600 font-black">1</span><span>Open this website in <strong class="text-white">Safari</strong>.</span></li>
+        <li class="flex gap-3"><span class="grid place-items-center shrink-0 w-7 h-7 rounded-full bg-indigo-600 font-black">2</span><span>Tap the <strong class="text-white">Share</strong> button at the bottom of Safari.</span></li>
+        <li class="flex gap-3"><span class="grid place-items-center shrink-0 w-7 h-7 rounded-full bg-indigo-600 font-black">3</span><span>Scroll down and choose <strong class="text-white">Add to Home Screen</strong>.</span></li>
+        <li class="flex gap-3"><span class="grid place-items-center shrink-0 w-7 h-7 rounded-full bg-indigo-600 font-black">4</span><span>Tap <strong class="text-white">Add</strong>. The tracker will open like an app and continue working offline.</span></li>
+      </ol>
+      <p class="mt-5 p-3 rounded-xl border border-amber-800/60 bg-amber-950/30 text-xs text-amber-200">The files must be hosted on an HTTPS website. Opening the HTML file directly from the iPhone Files app cannot install the offline app.</p>
+      <div class="flex justify-end mt-6">
+        <button id="close-install-dialog-btn" type="button" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="copy-dialog" class="backdrop:bg-black/70 bg-slate-900 text-slate-100 border border-slate-700 rounded-2xl p-0 w-[min(92vw,420px)] shadow-2xl">
+    <form method="dialog" class="p-6">
+      <h2 class="text-xl font-black">Copy routine</h2>
+      <p id="copy-dialog-text" class="text-sm text-slate-400 mt-1 mb-5">Copy this routine to another day.</p>
+      <label class="block text-sm font-bold text-slate-300 mb-2" for="copy-target-day">Destination day</label>
+      <select id="copy-target-day" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100"></select>
+      <label class="flex items-start gap-3 mt-4 p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer">
+        <input id="copy-overwrite-checkbox" type="checkbox" class="mt-0.5 w-4 h-4 accent-indigo-500">
+        <span class="text-sm text-slate-300">Replace the destination routine if it already contains exercises</span>
+      </label>
+      <div class="flex justify-end gap-3 mt-6">
+        <button value="cancel" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold">Cancel</button>
+        <button id="confirm-copy-btn" value="default" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold">Copy routine</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    'use strict';
+
+    const STORAGE_KEY = 'workout_tracker_weekly_v1';
+    const PREVIOUS_STORAGE_KEY = 'workout_tracker_v2';
+    const LEGACY_ROUTINE_KEY = 'workout_routine';
+    const DAYS = [
+      { key: 'monday', short: 'Mon', name: 'Monday' },
+      { key: 'tuesday', short: 'Tue', name: 'Tuesday' },
+      { key: 'wednesday', short: 'Wed', name: 'Wednesday' },
+      { key: 'thursday', short: 'Thu', name: 'Thursday' },
+      { key: 'friday', short: 'Fri', name: 'Friday' },
+      { key: 'saturday', short: 'Sat', name: 'Saturday' },
+      { key: 'sunday', short: 'Sun', name: 'Sunday' }
+    ];
+
+    const DEFAULT_ROUTINE = [
+      { id: 1, name: 'Barbell Squats', completed: false, reps: 8, targetSets: 3, sets: 0 },
+      { id: 2, name: 'Push-ups', completed: false, reps: 12, targetSets: 3, sets: 0 },
+      { id: 3, name: 'Plank', completed: false, reps: 1, targetSets: 3, sets: 0 }
+    ];
+
+    const state = {
+      selectedDay: getTodayKey(),
+      days: createEmptyWeek(),
+      timerMode: 'up',
+      timerSeconds: 0,
+      countdownSeconds: 60,
+      timerRunning: false,
+      timerStartedAt: null,
+      timerStartValue: 0,
+      timerInterval: null,
+      autoRest: false
+    };
+
+    const elements = {
+      dayTabs: document.getElementById('day-tabs'),
+      todayButton: document.getElementById('today-btn'),
+      selectedDayLabel: document.getElementById('selected-day-label'),
+      weekSummary: document.getElementById('week-summary'),
+      progressHeading: document.getElementById('progress-heading'),
+      routineHeading: document.getElementById('routine-heading'),
+      nowTrainingDay: document.getElementById('now-training-day'),
+      exerciseForm: document.getElementById('exercise-form'),
+      exerciseInput: document.getElementById('exercise-input'),
+      setsInput: document.getElementById('sets-input'),
+      repsInput: document.getElementById('reps-input'),
+      routineList: document.getElementById('routine-list'),
+      activeTitle: document.getElementById('active-exercise-title'),
+      activeTarget: document.getElementById('active-target'),
+      setDisplay: document.getElementById('set-count'),
+      repDisplay: document.getElementById('rep-count'),
+      progressBar: document.getElementById('progress-bar'),
+      progressText: document.getElementById('progress-text'),
+      progressTrack: document.getElementById('progress-track'),
+      sessionSummary: document.getElementById('session-summary'),
+      timerDisplay: document.getElementById('timer-display'),
+      timerToggle: document.getElementById('timer-toggle-btn'),
+      timerReset: document.getElementById('timer-reset-btn'),
+      modeUp: document.getElementById('mode-up-btn'),
+      modeDown: document.getElementById('mode-down-btn'),
+      countdownConfig: document.getElementById('countdown-config'),
+      countdownInput: document.getElementById('countdown-input'),
+      completeCurrent: document.getElementById('complete-current-btn'),
+      nextExercise: document.getElementById('next-exercise-btn'),
+      autoRest: document.getElementById('auto-rest-checkbox'),
+      resetSession: document.getElementById('reset-session-btn'),
+      clearRoutine: document.getElementById('clear-routine-btn'),
+      copyRoutine: document.getElementById('copy-routine-btn'),
+      exportButton: document.getElementById('export-btn'),
+      status: document.getElementById('status-message'),
+      copyDialog: document.getElementById('copy-dialog'),
+      copyDialogText: document.getElementById('copy-dialog-text'),
+      copyTargetDay: document.getElementById('copy-target-day'),
+      copyOverwrite: document.getElementById('copy-overwrite-checkbox'),
+      confirmCopy: document.getElementById('confirm-copy-btn'),
+      installButton: document.getElementById('install-app-btn'),
+      installDialog: document.getElementById('install-dialog'),
+      closeInstallDialog: document.getElementById('close-install-dialog-btn')
+    };
+
+    let deferredInstallPrompt = null;
+    let sharedAudioContext = null;
+
+    function isIOSDevice() {
+      return /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+
+    function isStandaloneApp() {
+      return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    }
+
+    function updateInstallButton() {
+      elements.installButton.hidden = isStandaloneApp();
+      elements.installButton.textContent = isIOSDevice() ? 'Install on iPhone' : 'Install app';
+    }
+
+    async function handleInstallRequest() {
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        try { await deferredInstallPrompt.userChoice; } catch (error) { /* no action needed */ }
+        deferredInstallPrompt = null;
+        updateInstallButton();
+        return;
+      }
+      elements.installDialog.showModal();
+    }
+
+    async function registerServiceWorker() {
+      if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
+      try {
+        await navigator.serviceWorker.register('./sw.js');
+      } catch (error) {
+        showStatus('Offline support could not be enabled on this host.', 'error');
+      }
+    }
+
+    function getTodayKey() {
+      const jsDay = new Date().getDay();
+      const mondayFirstIndex = (jsDay + 6) % 7;
+      return DAYS[mondayFirstIndex].key;
+    }
+
+    function createEmptyWeek() {
+      return Object.fromEntries(DAYS.map(day => [day.key, { routine: [], activeId: null }]));
+    }
+
+    function dayInfo(key = state.selectedDay) {
+      return DAYS.find(day => day.key === key) ?? DAYS[0];
+    }
+
+    function currentDayState() {
+      return state.days[state.selectedDay];
+    }
+
+    function currentRoutine() {
+      return currentDayState().routine;
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function parseInteger(value, fallback, min, max) {
+      const parsed = Number.parseInt(value, 10);
+      return Number.isFinite(parsed) ? clamp(parsed, min, max) : fallback;
+    }
+
+    function uniqueId() {
+      return Date.now() * 1000 + Math.floor(Math.random() * 1000);
+    }
+
+    function normalizeExercise(raw, fallbackId) {
+      if (!raw || typeof raw !== 'object') return null;
+      const name = typeof raw.name === 'string' ? raw.name.trim().slice(0, 80) : '';
+      if (!name) return null;
+
+      return {
+        id: Number.isFinite(Number(raw.id)) ? Number(raw.id) : fallbackId,
+        name,
+        completed: Boolean(raw.completed),
+        reps: parseInteger(raw.reps, 10, 1, 999),
+        targetSets: parseInteger(raw.targetSets, 3, 1, 20),
+        sets: parseInteger(raw.sets, 0, 0, 999)
+      };
+    }
+
+    function normalizeDay(rawDay, seed) {
+      const routineSource = Array.isArray(rawDay?.routine) ? rawDay.routine : [];
+      const routine = routineSource
+        .map((exercise, index) => normalizeExercise(exercise, seed + index))
+        .filter(Boolean);
+      const requestedActiveId = Number(rawDay?.activeId);
+      return {
+        routine,
+        activeId: routine.some(item => item.id === requestedActiveId)
+          ? requestedActiveId
+          : (routine[0]?.id ?? null)
+      };
+    }
+
+    function loadState() {
+      let migrated = false;
+
+      try {
+        const weeklySaved = localStorage.getItem(STORAGE_KEY);
+        if (weeklySaved) {
+          const parsed = JSON.parse(weeklySaved);
+          const week = createEmptyWeek();
+          DAYS.forEach((day, index) => {
+            week[day.key] = normalizeDay(parsed.days?.[day.key], Date.now() + index * 1000);
+          });
+          state.days = week;
+          state.selectedDay = DAYS.some(day => day.key === parsed.selectedDay)
+            ? parsed.selectedDay
+            : getTodayKey();
+          state.countdownSeconds = parseInteger(parsed.countdownSeconds, 60, 5, 3600);
+          state.autoRest = Boolean(parsed.autoRest);
+        } else {
+          const previousSaved = localStorage.getItem(PREVIOUS_STORAGE_KEY);
+          const legacySaved = localStorage.getItem(LEGACY_ROUTINE_KEY);
+          const today = getTodayKey();
+          let routine = [];
+          let activeId = null;
+
+          if (previousSaved) {
+            const parsed = JSON.parse(previousSaved);
+            routine = Array.isArray(parsed.routine) ? parsed.routine : [];
+            activeId = parsed.activeId;
+            state.countdownSeconds = parseInteger(parsed.countdownSeconds, 60, 5, 3600);
+            state.autoRest = Boolean(parsed.autoRest);
+            migrated = true;
+          } else if (legacySaved) {
+            routine = JSON.parse(legacySaved);
+            migrated = true;
+          } else {
+            routine = DEFAULT_ROUTINE;
+          }
+
+          state.days = createEmptyWeek();
+          state.days[today] = normalizeDay({ routine, activeId }, Date.now());
+          state.selectedDay = today;
+        }
+      } catch (error) {
+        const today = getTodayKey();
+        state.days = createEmptyWeek();
+        state.days[today] = normalizeDay({ routine: DEFAULT_ROUTINE }, Date.now());
+        state.selectedDay = today;
+      }
+
+      state.timerSeconds = 0;
+      elements.countdownInput.value = String(state.countdownSeconds);
+      elements.autoRest.checked = state.autoRest;
+      saveState();
+
+      if (migrated) {
+        window.setTimeout(() => showStatus(`Your old routine was moved to ${dayInfo(getTodayKey()).name}.`, 'success'), 0);
+      }
+    }
+
+    function saveState() {
+      const payload = {
+        version: 1,
+        selectedDay: state.selectedDay,
+        days: state.days,
+        countdownSeconds: state.countdownSeconds,
+        autoRest: state.autoRest,
+        updatedAt: new Date().toISOString()
+      };
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch (error) {
+        showStatus('Could not save data in this browser.', 'error');
+      }
+    }
+
+    function showStatus(message, type = 'info') {
+      elements.status.textContent = message;
+      elements.status.className = `mt-4 text-center text-sm min-h-5 ${
+        type === 'error' ? 'text-rose-400' : type === 'success' ? 'text-emerald-400' : 'text-slate-400'
+      }`;
+    }
+
+    function getRoutineStats(routine) {
+      const total = routine.length;
+      const completed = routine.filter(item => item.completed).length;
+      const percentage = total ? Math.round((completed / total) * 100) : 0;
+      const totalSets = routine.reduce((sum, item) => sum + item.sets, 0);
+      return { total, completed, percentage, totalSets };
+    }
+
+    function renderDayTabs() {
+      elements.dayTabs.replaceChildren();
+      const today = getTodayKey();
+
+      DAYS.forEach(day => {
+        const stats = getRoutineStats(state.days[day.key].routine);
+        const selected = day.key === state.selectedDay;
+        const isToday = day.key === today;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.day = day.key;
+        button.setAttribute('aria-pressed', String(selected));
+        button.className = `relative min-h-16 px-2 py-2.5 rounded-xl border text-center transition-all ${
+          selected
+            ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg'
+            : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-600 hover:bg-slate-800'
+        }`;
+
+        const dayName = document.createElement('span');
+        dayName.className = 'block text-sm font-black';
+        dayName.textContent = day.short;
+
+        const count = document.createElement('span');
+        count.className = `block text-[11px] mt-1 ${selected ? 'text-indigo-100' : 'text-slate-500'}`;
+        count.textContent = stats.total ? `${stats.completed}/${stats.total} done` : 'Rest / empty';
+
+        button.append(dayName, count);
+
+        if (isToday) {
+          const marker = document.createElement('span');
+          marker.className = `absolute top-1 right-1 w-2 h-2 rounded-full ${selected ? 'bg-white' : 'bg-indigo-400'}`;
+          marker.title = 'Today';
+          button.appendChild(marker);
+        }
+
+        elements.dayTabs.appendChild(button);
+      });
+    }
+
+    function createButton(label, title, classes, action, disabled = false) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.title = title;
+      button.className = classes;
+      button.dataset.action = action;
+      button.disabled = disabled;
+      return button;
+    }
+
+    function renderRoutine() {
+      const routine = currentRoutine();
+      const activeId = currentDayState().activeId;
+      elements.routineList.replaceChildren();
+
+      if (routine.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'text-center py-10 px-4 rounded-xl border border-dashed border-slate-700 bg-slate-950/30';
+        const title = document.createElement('p');
+        title.className = 'font-bold text-slate-300';
+        title.textContent = `No exercises for ${dayInfo().name}`;
+        const description = document.createElement('p');
+        description.className = 'text-sm text-slate-500 mt-1';
+        description.textContent = 'Keep it as a rest day or add an exercise above.';
+        empty.append(title, description);
+        elements.routineList.appendChild(empty);
+        updateProgress();
+        return;
+      }
+
+      routine.forEach((exercise, index) => {
+        const selected = exercise.id === activeId;
+        const card = document.createElement('article');
+        card.dataset.id = String(exercise.id);
+        card.className = `flex items-center justify-between gap-3 p-4 rounded-xl border transition-all ${
+          selected
+            ? 'bg-slate-800 border-indigo-500 shadow-md ring-1 ring-indigo-500/30'
+            : 'bg-slate-950/50 border-slate-800 hover:border-slate-700'
+        } ${exercise.completed ? 'opacity-60' : ''}`;
+
+        const left = document.createElement('div');
+        left.className = 'flex items-center gap-3 flex-1 min-w-0';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = exercise.completed;
+        checkbox.dataset.action = 'toggle';
+        checkbox.className = 'w-5 h-5 shrink-0 accent-indigo-500 cursor-pointer';
+        checkbox.setAttribute('aria-label', `Mark ${exercise.name} complete`);
+
+        const textButton = document.createElement('button');
+        textButton.type = 'button';
+        textButton.dataset.action = 'select';
+        textButton.className = 'text-left flex-1 min-w-0 py-1';
+
+        const name = document.createElement('p');
+        name.textContent = exercise.name;
+        name.className = `font-bold tracking-wide text-sm md:text-base break-words ${
+          exercise.completed ? 'line-through text-slate-500' : 'text-slate-200'
+        }`;
+
+        const meta = document.createElement('p');
+        meta.textContent = `${exercise.sets}/${exercise.targetSets} sets • ${exercise.reps} reps`;
+        meta.className = 'text-xs text-slate-400 mt-1';
+
+        textButton.append(name, meta);
+        left.append(checkbox, textButton);
+
+        const controls = document.createElement('div');
+        controls.className = 'flex items-center gap-1 shrink-0';
+        controls.append(
+          createButton('✎', `Edit ${exercise.name}`, 'p-2 text-slate-400 hover:text-indigo-300 rounded-lg transition-colors', 'edit'),
+          createButton('▲', 'Move up', 'p-2 text-slate-400 hover:text-slate-200 disabled:opacity-20 rounded-lg', 'up', index === 0),
+          createButton('▼', 'Move down', 'p-2 text-slate-400 hover:text-slate-200 disabled:opacity-20 rounded-lg', 'down', index === routine.length - 1),
+          createButton('✕', `Delete ${exercise.name}`, 'p-2 text-slate-500 hover:text-rose-400 rounded-lg transition-colors', 'delete')
+        );
+
+        card.append(left, controls);
+        elements.routineList.appendChild(card);
+      });
+
+      updateProgress();
+    }
+
+    function updateProgress() {
+      const selectedInfo = dayInfo();
+      const stats = getRoutineStats(currentRoutine());
+      const allRoutines = DAYS.flatMap(day => state.days[day.key].routine);
+      const weekStats = getRoutineStats(allRoutines);
+      const trainingDays = DAYS.filter(day => state.days[day.key].routine.length > 0).length;
+
+      elements.progressBar.style.width = `${stats.percentage}%`;
+      elements.progressText.textContent = `${stats.completed}/${stats.total} completed (${stats.percentage}%)`;
+      elements.progressTrack.setAttribute('aria-valuenow', String(stats.percentage));
+      elements.progressHeading.textContent = `${selectedInfo.name} Progress`;
+      elements.sessionSummary.textContent = `${stats.total} exercise${stats.total === 1 ? '' : 's'} • ${stats.totalSets} set${stats.totalSets === 1 ? '' : 's'} completed`;
+      elements.weekSummary.textContent = `${weekStats.total} exercises across ${trainingDays} training day${trainingDays === 1 ? '' : 's'} • ${weekStats.completed} completed`;
+    }
+
+    function activeExercise() {
+      const day = currentDayState();
+      return day.routine.find(item => item.id === day.activeId) ?? null;
+    }
+
+    function renderActivePanel() {
+      const active = activeExercise();
+      const disabled = !active;
+      const selectedInfo = dayInfo();
+
+      elements.selectedDayLabel.textContent = selectedInfo.name;
+      elements.routineHeading.textContent = `${selectedInfo.name} Routine`;
+      elements.nowTrainingDay.textContent = `${selectedInfo.name} • Now Training`;
+
+      if (!active) {
+        elements.activeTitle.textContent = currentRoutine().length ? 'Select an exercise' : 'Rest day';
+        elements.activeTarget.textContent = currentRoutine().length ? 'No active exercise' : `No exercises planned for ${selectedInfo.name}`;
+        elements.setDisplay.textContent = '0';
+        elements.repDisplay.textContent = '0';
+        elements.completeCurrent.textContent = 'Complete current';
+      } else {
+        elements.activeTitle.textContent = active.name;
+        elements.activeTarget.textContent = `${active.sets} of ${active.targetSets} sets completed`;
+        elements.setDisplay.textContent = String(active.sets);
+        elements.repDisplay.textContent = String(active.reps);
+        elements.completeCurrent.textContent = active.completed ? 'Mark incomplete' : 'Complete current';
+      }
+
+      document.querySelectorAll('.metric-btn').forEach(button => {
+        button.disabled = disabled;
+        button.classList.toggle('opacity-40', disabled);
+        button.classList.toggle('cursor-not-allowed', disabled);
+      });
+      elements.completeCurrent.disabled = disabled;
+      elements.nextExercise.disabled = currentRoutine().length < 2;
+      elements.resetSession.disabled = currentRoutine().length === 0;
+      elements.clearRoutine.disabled = currentRoutine().length === 0;
+      elements.copyRoutine.disabled = currentRoutine().length === 0;
+    }
+
+    function syncUI() {
+      saveState();
+      renderDayTabs();
+      renderRoutine();
+      renderActivePanel();
+    }
+
+    function selectDay(dayKey) {
+      if (!DAYS.some(day => day.key === dayKey) || dayKey === state.selectedDay) return;
+      stopTimer();
+      state.selectedDay = dayKey;
+      resetTimer(false);
+      syncUI();
+      showStatus(`${dayInfo().name} selected.`);
+    }
+
+    function addExercise(event) {
+      event.preventDefault();
+      const name = elements.exerciseInput.value.trim().slice(0, 80);
+      const targetSets = parseInteger(elements.setsInput.value, 3, 1, 20);
+      const reps = parseInteger(elements.repsInput.value, 10, 1, 999);
+      if (!name) return;
+
+      const exercise = {
+        id: uniqueId(),
+        name,
+        completed: false,
+        reps,
+        targetSets,
+        sets: 0
+      };
+      const day = currentDayState();
+      day.routine.push(exercise);
+      if (day.activeId === null) day.activeId = exercise.id;
+
+      elements.exerciseInput.value = '';
+      syncUI();
+      elements.exerciseInput.focus();
+      showStatus(`${name} added to ${dayInfo().name}.`, 'success');
+    }
+
+    function handleRoutineAction(event) {
+      const control = event.target.closest('[data-action]');
+      const card = event.target.closest('[data-id]');
+      if (!control || !card) return;
+
+      const routine = currentRoutine();
+      const day = currentDayState();
+      const id = Number(card.dataset.id);
+      const index = routine.findIndex(item => item.id === id);
+      if (index < 0) return;
+
+      const action = control.dataset.action;
+      if (action === 'select') {
+        day.activeId = id;
+      } else if (action === 'toggle') {
+        routine[index].completed = !routine[index].completed;
+      } else if (action === 'up' && index > 0) {
+        [routine[index - 1], routine[index]] = [routine[index], routine[index - 1]];
+      } else if (action === 'down' && index < routine.length - 1) {
+        [routine[index + 1], routine[index]] = [routine[index], routine[index + 1]];
+      } else if (action === 'edit') {
+        editExercise(index);
+      } else if (action === 'delete') {
+        deleteExercise(index);
+      }
+
+      syncUI();
+    }
+
+    function editExercise(index) {
+      const exercise = currentRoutine()[index];
+      const newName = window.prompt('Exercise name:', exercise.name);
+      if (newName === null) return;
+      const cleanName = newName.trim().slice(0, 80);
+      if (!cleanName) {
+        showStatus('Exercise name cannot be empty.', 'error');
+        return;
+      }
+
+      const newTargetSets = window.prompt('Target sets:', String(exercise.targetSets));
+      if (newTargetSets === null) return;
+      const newReps = window.prompt('Target reps:', String(exercise.reps));
+      if (newReps === null) return;
+
+      exercise.name = cleanName;
+      exercise.targetSets = parseInteger(newTargetSets, exercise.targetSets, 1, 20);
+      exercise.reps = parseInteger(newReps, exercise.reps, 1, 999);
+      if (exercise.sets < exercise.targetSets) exercise.completed = false;
+      showStatus(`${cleanName} updated.`, 'success');
+    }
+
+    function deleteExercise(index) {
+      const routine = currentRoutine();
+      const day = currentDayState();
+      const exercise = routine[index];
+      if (!window.confirm(`Delete “${exercise.name}” from ${dayInfo().name}?`)) return;
+
+      routine.splice(index, 1);
+      if (day.activeId === exercise.id) {
+        day.activeId = routine[index]?.id ?? routine[index - 1]?.id ?? null;
+      }
+      showStatus(`${exercise.name} deleted.`);
+    }
+
+    function adjustMetric(type, change) {
+      const active = activeExercise();
+      if (!active) return;
+
+      if (type === 'sets') {
+        active.sets = Math.max(0, active.sets + change);
+        if (active.sets >= active.targetSets) active.completed = true;
+        if (active.sets < active.targetSets && change < 0) active.completed = false;
+
+        if (change > 0 && state.autoRest) {
+          setTimerMode('down');
+          resetTimer(false);
+          startTimer();
+        }
+      } else if (type === 'reps') {
+        active.reps = clamp(active.reps + change, 1, 999);
+      }
+
+      syncUI();
+    }
+
+    function selectNextExercise() {
+      const routine = currentRoutine();
+      if (!routine.length) return;
+      const day = currentDayState();
+      const currentIndex = routine.findIndex(item => item.id === day.activeId);
+      const nextIncomplete = routine.findIndex((item, index) => index > currentIndex && !item.completed);
+      const fallbackIncomplete = routine.findIndex(item => !item.completed);
+      const nextIndex = nextIncomplete >= 0
+        ? nextIncomplete
+        : fallbackIncomplete >= 0
+          ? fallbackIncomplete
+          : (Math.max(currentIndex, 0) + 1) % routine.length;
+      day.activeId = routine[nextIndex].id;
+      syncUI();
+    }
+
+    function toggleCurrentCompletion() {
+      const active = activeExercise();
+      if (!active) return;
+      active.completed = !active.completed;
+      syncUI();
+      showStatus(active.completed ? `${active.name} completed!` : `${active.name} marked incomplete.`, active.completed ? 'success' : 'info');
+    }
+
+    function setTimerMode(mode) {
+      if (state.timerRunning || !['up', 'down'].includes(mode)) return;
+      state.timerMode = mode;
+      elements.modeUp.setAttribute('aria-pressed', String(mode === 'up'));
+      elements.modeDown.setAttribute('aria-pressed', String(mode === 'down'));
+      elements.modeUp.className = `flex-1 px-3 py-2 rounded-md text-xs font-bold transition-all ${mode === 'up' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`;
+      elements.modeDown.className = `flex-1 px-3 py-2 rounded-md text-xs font-bold transition-all ${mode === 'down' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`;
+      elements.countdownConfig.hidden = mode !== 'down';
+      state.timerSeconds = mode === 'up' ? 0 : state.countdownSeconds;
+      formatTimerDisplay();
+    }
+
+    function formatTime(seconds) {
+      const safeSeconds = Math.max(0, Math.floor(seconds));
+      const hours = Math.floor(safeSeconds / 3600);
+      const minutes = Math.floor((safeSeconds % 3600) / 60);
+      const secs = safeSeconds % 60;
+      return hours > 0
+        ? `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+        : `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function formatTimerDisplay() {
+      elements.timerDisplay.textContent = formatTime(state.timerSeconds);
+      document.title = state.timerRunning
+        ? `${elements.timerDisplay.textContent} • ${dayInfo().short} Workout`
+        : 'Weekly Workout Tracker';
+    }
+
+    function updateTimerFromClock() {
+      if (!state.timerRunning || state.timerStartedAt === null) return;
+      const elapsed = Math.floor((Date.now() - state.timerStartedAt) / 1000);
+
+      if (state.timerMode === 'up') {
+        state.timerSeconds = state.timerStartValue + elapsed;
+      } else {
+        state.timerSeconds = Math.max(0, state.timerStartValue - elapsed);
+        if (state.timerSeconds === 0) {
+          stopTimer(false);
+          timerFinished();
+        }
+      }
+      formatTimerDisplay();
+    }
+
+    function startTimer() {
+      if (state.timerRunning) return;
+      void ensureAudioReady();
+      if (state.timerMode === 'down' && state.timerSeconds <= 0) {
+        state.timerSeconds = state.countdownSeconds;
+      }
+      state.timerRunning = true;
+      state.timerStartedAt = Date.now();
+      state.timerStartValue = state.timerSeconds;
+      state.timerInterval = window.setInterval(updateTimerFromClock, 250);
+      updateTimerButton();
+      updateTimerFromClock();
+    }
+
+    function stopTimer(updateDisplay = true) {
+      if (state.timerRunning && state.timerStartedAt !== null) {
+        const elapsed = Math.floor((Date.now() - state.timerStartedAt) / 1000);
+        state.timerSeconds = state.timerMode === 'up'
+          ? state.timerStartValue + elapsed
+          : Math.max(0, state.timerStartValue - elapsed);
+      }
+      window.clearInterval(state.timerInterval);
+      state.timerInterval = null;
+      state.timerRunning = false;
+      state.timerStartedAt = null;
+      updateTimerButton();
+      if (updateDisplay) formatTimerDisplay();
+    }
+
+    function toggleTimer() {
+      state.timerRunning ? stopTimer() : startTimer();
+    }
+
+    function resetTimer(showMessage = true) {
+      window.clearInterval(state.timerInterval);
+      state.timerInterval = null;
+      state.timerRunning = false;
+      state.timerStartedAt = null;
+      state.timerSeconds = state.timerMode === 'up' ? 0 : state.countdownSeconds;
+      updateTimerButton();
+      formatTimerDisplay();
+      if (showMessage) showStatus('Timer reset.');
+    }
+
+    function updateTimerButton() {
+      elements.timerToggle.textContent = state.timerRunning ? 'Pause' : 'Start';
+      elements.timerToggle.className = `${
+        state.timerRunning ? 'bg-amber-600 hover:bg-amber-500' : 'bg-emerald-600 hover:bg-emerald-500'
+      } text-white font-bold px-6 py-2.5 rounded-xl transition-colors text-sm w-28`;
+    }
+
+    function timerFinished() {
+      elements.timerDisplay.classList.remove('timer-finished');
+      void elements.timerDisplay.offsetWidth;
+      elements.timerDisplay.classList.add('timer-finished');
+      playBeep();
+      showStatus('Rest complete. Time for the next set!', 'success');
+    }
+
+    async function ensureAudioReady() {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return null;
+        if (!sharedAudioContext || sharedAudioContext.state === 'closed') {
+          sharedAudioContext = new AudioContextClass();
+        }
+        if (sharedAudioContext.state === 'suspended') await sharedAudioContext.resume();
+        return sharedAudioContext;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    async function playBeep() {
+      const audioContext = await ensureAudioReady();
+      if (!audioContext) return;
+      try {
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 880;
+        gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.18, audioContext.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.45);
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.5);
+      } catch (error) {
+        // The visual alert still works if audio is blocked.
+      }
+    }
+
+    function updateCountdown(value) {
+      state.countdownSeconds = parseInteger(value, 60, 5, 3600);
+      elements.countdownInput.value = String(state.countdownSeconds);
+      if (!state.timerRunning && state.timerMode === 'down') {
+        state.timerSeconds = state.countdownSeconds;
+        formatTimerDisplay();
+      }
+      saveState();
+    }
+
+    function resetSession() {
+      const routine = currentRoutine();
+      if (!routine.length) return;
+      if (!window.confirm(`Reset all completed sets and checkmarks for ${dayInfo().name}?`)) return;
+      routine.forEach(item => {
+        item.sets = 0;
+        item.completed = false;
+      });
+      currentDayState().activeId = routine[0]?.id ?? null;
+      resetTimer(false);
+      syncUI();
+      showStatus(`${dayInfo().name} progress reset.`, 'success');
+    }
+
+    function clearRoutine() {
+      const routine = currentRoutine();
+      if (!routine.length) return;
+      if (!window.confirm(`Delete the entire ${dayInfo().name} routine? This cannot be undone.`)) return;
+      currentDayState().routine = [];
+      currentDayState().activeId = null;
+      syncUI();
+      showStatus(`${dayInfo().name} routine cleared.`);
+    }
+
+    function openCopyDialog() {
+      if (!currentRoutine().length) return;
+      elements.copyTargetDay.replaceChildren();
+      DAYS.filter(day => day.key !== state.selectedDay).forEach(day => {
+        const option = document.createElement('option');
+        option.value = day.key;
+        option.textContent = `${day.name}${state.days[day.key].routine.length ? ` (${state.days[day.key].routine.length} exercises)` : ''}`;
+        elements.copyTargetDay.appendChild(option);
+      });
+      elements.copyDialogText.textContent = `Copy all exercises from ${dayInfo().name} to another day. Completed sets will reset.`;
+      elements.copyOverwrite.checked = false;
+      elements.copyDialog.showModal();
+    }
+
+    function copyRoutineToDay(event) {
+      event.preventDefault();
+      const targetKey = elements.copyTargetDay.value;
+      const targetInfo = dayInfo(targetKey);
+      const targetDay = state.days[targetKey];
+      if (!targetDay || targetKey === state.selectedDay) return;
+
+      if (targetDay.routine.length && !elements.copyOverwrite.checked) {
+        showStatus(`${targetInfo.name} already has a routine. Choose replace to overwrite it.`, 'error');
+        elements.copyDialog.close();
+        return;
+      }
+
+      const copied = currentRoutine().map(exercise => ({
+        ...exercise,
+        id: uniqueId(),
+        completed: false,
+        sets: 0
+      }));
+      targetDay.routine = copied;
+      targetDay.activeId = copied[0]?.id ?? null;
+      elements.copyDialog.close();
+      syncUI();
+      showStatus(`${dayInfo().name} routine copied to ${targetInfo.name}.`, 'success');
+    }
+
+    function exportWeek() {
+      const exportData = {
+        exportedAt: new Date().toISOString(),
+        selectedDay: state.selectedDay,
+        days: state.days,
+        settings: {
+          countdownSeconds: state.countdownSeconds,
+          autoRest: state.autoRest
+        }
+      };
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `weekly-workout-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showStatus('Weekly plan exported.', 'success');
+    }
+
+    function handleKeyboard(event) {
+      const tag = event.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.code === 'Space') {
+        event.preventDefault();
+        toggleTimer();
+      } else if (event.key.toLowerCase() === 'r') {
+        resetTimer();
+      }
+    }
+
+    function bindEvents() {
+      elements.dayTabs.addEventListener('click', event => {
+        const button = event.target.closest('[data-day]');
+        if (button) selectDay(button.dataset.day);
+      });
+      elements.todayButton.addEventListener('click', () => selectDay(getTodayKey()));
+      elements.exerciseForm.addEventListener('submit', addExercise);
+      elements.routineList.addEventListener('click', handleRoutineAction);
+
+      document.querySelectorAll('.metric-btn').forEach(button => {
+        button.addEventListener('click', () => {
+          adjustMetric(button.dataset.metric, Number(button.dataset.change));
+        });
+      });
+
+      elements.timerToggle.addEventListener('click', toggleTimer);
+      elements.timerReset.addEventListener('click', () => resetTimer());
+      elements.modeUp.addEventListener('click', () => setTimerMode('up'));
+      elements.modeDown.addEventListener('click', () => setTimerMode('down'));
+      elements.countdownInput.addEventListener('change', event => updateCountdown(event.target.value));
+
+      document.querySelectorAll('.rest-preset').forEach(button => {
+        button.addEventListener('click', () => updateCountdown(button.dataset.rest));
+      });
+
+      elements.completeCurrent.addEventListener('click', toggleCurrentCompletion);
+      elements.nextExercise.addEventListener('click', selectNextExercise);
+      elements.autoRest.addEventListener('change', event => {
+        state.autoRest = event.target.checked;
+        saveState();
+      });
+      elements.resetSession.addEventListener('click', resetSession);
+      elements.clearRoutine.addEventListener('click', clearRoutine);
+      elements.copyRoutine.addEventListener('click', openCopyDialog);
+      elements.confirmCopy.addEventListener('click', copyRoutineToDay);
+      elements.exportButton.addEventListener('click', exportWeek);
+      document.addEventListener('keydown', handleKeyboard);
+      document.addEventListener('visibilitychange', updateTimerFromClock);
+      elements.installButton.addEventListener('click', handleInstallRequest);
+      elements.closeInstallDialog.addEventListener('click', () => elements.installDialog.close());
+      window.addEventListener('beforeinstallprompt', event => {
+        event.preventDefault();
+        deferredInstallPrompt = event;
+        updateInstallButton();
+      });
+      window.addEventListener('appinstalled', () => {
+        deferredInstallPrompt = null;
+        updateInstallButton();
+        showStatus('Workout Tracker installed.', 'success');
+      });
+      const displayModeQuery = window.matchMedia('(display-mode: standalone)');
+      if (displayModeQuery.addEventListener) displayModeQuery.addEventListener('change', updateInstallButton);
+      window.addEventListener('beforeunload', () => window.clearInterval(state.timerInterval));
+    }
+
+    function init() {
+      loadState();
+      bindEvents();
+      renderDayTabs();
+      renderRoutine();
+      renderActivePanel();
+      formatTimerDisplay();
+      updateInstallButton();
+      void registerServiceWorker();
+    }
+
+    init();
+  </script>
+</body>
+</html>
