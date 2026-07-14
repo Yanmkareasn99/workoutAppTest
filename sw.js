@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'weekly-workout-ios-v2';
+const CACHE_NAME = 'weekly-workout-ios-v3';
 const APP_SHELL = [
   './',
   './index.html',

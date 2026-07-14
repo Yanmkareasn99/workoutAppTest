@@ -40,3 +40,11 @@ VERSION 2 FEATURES
 - Timed exercises such as walking and running store a duration.
 - Exercise countdown automatically marks a timed exercise complete.
 - Existing saved weekly routines are preserved and treated as sets/reps exercises.
+
+VERSION 3 SOUND UPDATE
+----------------------
+- Replaced the short two-beep alert with a longer alternating alarm.
+- Added Gentle, Normal, and Loud alarm intensity choices.
+- Added a Test alarm button.
+- Loud mode plays six tones for roughly 3 seconds.
+- Device media volume still controls final playback volume.

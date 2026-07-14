@@ -202,6 +202,20 @@
                   <button type="button" data-rest="120" class="rest-preset px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold">2m</button>
                 </div>
               </div>
+
+              <div class="pt-4 border-t border-slate-800 space-y-3">
+                <div class="grid grid-cols-1 gap-2 max-w-xs mx-auto text-xs">
+                  <label for="alarm-level-input" class="text-slate-400 font-medium">Alarm intensity</label>
+                  <select id="alarm-level-input"
+                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-center font-bold text-slate-200 focus:border-indigo-500">
+                    <option value="gentle">Gentle</option>
+                    <option value="normal">Normal</option>
+                    <option value="loud" selected>Loud</option>
+                  </select>
+                  <button id="test-alarm-btn" type="button" class="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-bold text-white">Test alarm</button>
+                </div>
+                <p class="text-xs text-slate-500">The loud alarm plays six alternating tones for about 3 seconds. Your iPhone media volume still controls the final loudness.</p>
+              </div>
             </div>
           </section>
 
@@ -318,7 +332,8 @@
       timerStartedAt: null,
       timerStartValue: 0,
       timerInterval: null,
-      autoRest: false
+      autoRest: false,
+      alarmLevel: 'loud'
     };
 
     const elements = {
@@ -361,6 +376,8 @@
       exerciseTimerInfo: document.getElementById('exercise-timer-info'),
       restTimerConfig: document.getElementById('rest-timer-config'),
       countdownInput: document.getElementById('countdown-input'),
+      alarmLevel: document.getElementById('alarm-level-input'),
+      testAlarm: document.getElementById('test-alarm-btn'),
       completeCurrent: document.getElementById('complete-current-btn'),
       nextExercise: document.getElementById('next-exercise-btn'),
       autoRest: document.getElementById('auto-rest-checkbox'),
@@ -501,6 +518,7 @@
             : getTodayKey();
           state.countdownSeconds = parseInteger(parsed.countdownSeconds, 60, 5, 3600);
           state.autoRest = Boolean(parsed.autoRest);
+          state.alarmLevel = ['gentle', 'normal', 'loud'].includes(parsed.alarmLevel) ? parsed.alarmLevel : 'loud';
         } else {
           const previousSaved = localStorage.getItem(PREVIOUS_STORAGE_KEY);
           const legacySaved = localStorage.getItem(LEGACY_ROUTINE_KEY);
@@ -535,6 +553,7 @@
 
       elements.countdownInput.value = String(state.countdownSeconds);
       elements.autoRest.checked = state.autoRest;
+      elements.alarmLevel.value = state.alarmLevel;
       saveState();
 
       if (migrated) {
@@ -549,6 +568,7 @@
         days: state.days,
         countdownSeconds: state.countdownSeconds,
         autoRest: state.autoRest,
+        alarmLevel: state.alarmLevel,
         updatedAt: new Date().toISOString()
       };
 
@@ -1180,21 +1200,57 @@
     async function playBeep() {
       const audioContext = await ensureAudioReady();
       if (!audioContext) return;
+
+      const profiles = {
+        gentle: { pulses: 3, gap: 0.42, duration: 0.28, gain: 0.18 },
+        normal: { pulses: 4, gap: 0.46, duration: 0.34, gain: 0.34 },
+        loud: { pulses: 6, gap: 0.5, duration: 0.38, gain: 0.58 }
+      };
+      const profile = profiles[state.alarmLevel] || profiles.loud;
+
       try {
-        const now = audioContext.currentTime;
-        [0, 0.22].forEach(offset => {
-          const oscillator = audioContext.createOscillator();
-          const gain = audioContext.createGain();
-          oscillator.type = 'sine';
-          oscillator.frequency.value = 880;
-          gain.gain.setValueAtTime(0.0001, now + offset);
-          gain.gain.exponentialRampToValueAtTime(0.18, now + offset + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.18);
-          oscillator.connect(gain);
-          gain.connect(audioContext.destination);
-          oscillator.start(now + offset);
-          oscillator.stop(now + offset + 0.2);
-        });
+        const now = audioContext.currentTime + 0.03;
+        const masterGain = audioContext.createGain();
+        const compressor = audioContext.createDynamicsCompressor();
+        compressor.threshold.setValueAtTime(-18, now);
+        compressor.knee.setValueAtTime(12, now);
+        compressor.ratio.setValueAtTime(8, now);
+        compressor.attack.setValueAtTime(0.003, now);
+        compressor.release.setValueAtTime(0.18, now);
+        masterGain.gain.setValueAtTime(profile.gain, now);
+        masterGain.connect(compressor);
+        compressor.connect(audioContext.destination);
+
+        for (let index = 0; index < profile.pulses; index += 1) {
+          const offset = index * profile.gap;
+          const start = now + offset;
+          const end = start + profile.duration;
+          const baseFrequency = index % 2 === 0 ? 880 : 1175;
+
+          const envelope = audioContext.createGain();
+          envelope.gain.setValueAtTime(0.0001, start);
+          envelope.gain.exponentialRampToValueAtTime(1, start + 0.025);
+          envelope.gain.setValueAtTime(1, Math.max(start + 0.03, end - 0.09));
+          envelope.gain.exponentialRampToValueAtTime(0.0001, end);
+          envelope.connect(masterGain);
+
+          const primary = audioContext.createOscillator();
+          primary.type = 'square';
+          primary.frequency.setValueAtTime(baseFrequency, start);
+          primary.connect(envelope);
+          primary.start(start);
+          primary.stop(end);
+
+          const overtone = audioContext.createOscillator();
+          const overtoneGain = audioContext.createGain();
+          overtone.type = 'sawtooth';
+          overtone.frequency.setValueAtTime(baseFrequency * 1.5, start);
+          overtoneGain.gain.setValueAtTime(0.22, start);
+          overtone.connect(overtoneGain);
+          overtoneGain.connect(envelope);
+          overtone.start(start);
+          overtone.stop(end);
+        }
       } catch (error) {
         // The visual alert still works if audio is blocked.
       }
@@ -1284,7 +1340,8 @@
         days: state.days,
         settings: {
           restCountdownSeconds: state.countdownSeconds,
-          autoRest: state.autoRest
+          autoRest: state.autoRest,
+          alarmLevel: state.alarmLevel
         }
       };
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -1334,6 +1391,16 @@
       elements.modeExercise.addEventListener('click', () => setTimerMode('exercise'));
       elements.modeRest.addEventListener('click', () => setTimerMode('rest'));
       elements.countdownInput.addEventListener('change', event => updateCountdown(event.target.value));
+      elements.alarmLevel.addEventListener('change', event => {
+        state.alarmLevel = event.target.value;
+        saveState();
+        showStatus(`Alarm intensity set to ${state.alarmLevel}.`);
+      });
+      elements.testAlarm.addEventListener('click', async () => {
+        await ensureAudioReady();
+        await playBeep();
+        if (navigator.vibrate) navigator.vibrate([250, 120, 250, 120, 400]);
+      });
 
       document.querySelectorAll('.rest-preset').forEach(button => {
         button.addEventListener('click', () => updateCountdown(button.dataset.rest));
