@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "Weekly Workout Tracker",
-  "short_name": "Workout",
-  "description": "Plan weekly sets-and-reps workouts and timed exercises with exercise and rest countdowns.",
+  "name": "Weekly Workout & Exercise Guide",
+  "short_name": "Workout Guide",
+  "description": "Plan weekly workouts, use exercise and rest countdowns, and view stored exercise instructions, pictures, and free video demonstrations.",
   "lang": "en",
   "start_url": "./index.html",
   "scope": "./",

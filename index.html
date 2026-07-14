@@ -113,11 +113,15 @@
           </div>
 
           <form id="exercise-form" class="grid grid-cols-1 sm:grid-cols-12 gap-2 mb-6">
-            <label class="sm:col-span-6">
-              <span class="sr-only">Exercise name</span>
-              <input type="text" id="exercise-input" placeholder="Exercise name" maxlength="80" required
-                class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 transition-colors">
-            </label>
+            <div class="sm:col-span-6 exercise-search-wrap">
+              <label>
+                <span class="sr-only">Exercise name</span>
+                <input type="text" id="exercise-input" placeholder="Start typing: squat, walking, push-up…" maxlength="80" required
+                  autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="exercise-suggestions" aria-expanded="false"
+                  class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 transition-colors">
+              </label>
+              <div id="exercise-suggestions" class="exercise-suggestions" role="listbox" hidden></div>
+            </div>
             <label class="sm:col-span-6">
               <span class="sr-only">Exercise type</span>
               <select id="exercise-type-input" title="Exercise type"
@@ -153,8 +157,27 @@
               </label>
             </div>
 
-            <button type="submit" class="sm:col-span-12 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-3 rounded-xl transition-colors">Add exercise</button>
-            <p id="exercise-form-help" class="sm:col-span-12 text-xs text-slate-500">Use sets and reps for strength exercises.</p>
+            <div class="sm:col-span-12 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-3 rounded-xl transition-colors">Add exercise</button>
+              <button id="browse-library-btn" type="button" class="bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold px-5 py-3 rounded-xl transition-colors">Browse exercise library</button>
+            </div>
+            <div class="sm:col-span-12 flex flex-wrap items-center justify-between gap-2">
+              <p id="exercise-form-help" class="text-xs text-slate-500">Use sets and reps for strength exercises.</p>
+              <p id="library-status" class="text-xs text-indigo-300" aria-live="polite">Loading exercise library…</p>
+            </div>
+            <section id="library-preview" class="sm:col-span-12 library-preview" hidden aria-label="Selected exercise guide preview">
+              <img id="library-preview-image" class="library-preview-image" alt="" loading="lazy">
+              <div class="library-preview-copy">
+                <p class="library-preview-kicker">Matched from the exercise library</p>
+                <h3 id="library-preview-title" class="library-preview-title"></h3>
+                <p id="library-preview-meta" class="library-preview-meta"></p>
+                <p id="library-preview-step" class="library-preview-step"></p>
+                <div class="library-preview-actions">
+                  <button id="preview-guide-btn" type="button" class="library-action-primary">View pictures &amp; video</button>
+                  <button id="clear-library-match-btn" type="button" class="library-action-secondary">Use as custom name</button>
+                </div>
+              </div>
+            </section>
           </form>
 
           <div id="routine-list" class="space-y-3 max-h-[560px] overflow-y-auto pr-1" aria-live="polite"></div>
@@ -167,6 +190,7 @@
             <span id="now-training-day" class="text-xs font-bold tracking-widest uppercase text-indigo-400">Monday • Now Training</span>
             <h2 id="active-exercise-title" class="text-2xl font-black text-slate-100 mt-1 break-words">Select an exercise</h2>
             <p id="active-target" class="text-sm text-slate-400 mt-1">No active exercise</p>
+            <button id="active-guide-btn" type="button" class="active-guide-btn" hidden>How to do this exercise</button>
           </div>
 
           <section class="bg-slate-950 rounded-2xl p-5 md:p-6 border border-slate-800 text-center mb-6 shadow-inner" aria-label="Countdown timer">
@@ -300,12 +324,288 @@
     </form>
   </dialog>
 
+  <dialog id="library-dialog" class="library-dialog">
+    <div class="library-dialog-shell">
+      <div class="library-dialog-header">
+        <div>
+          <p class="library-dialog-kicker">Free exercise library</p>
+          <h2 class="library-dialog-title">Choose an exercise</h2>
+          <p class="library-dialog-subtitle">Search public-domain exercise instructions and pictures. Selecting one fills the add form.</p>
+        </div>
+        <button id="close-library-dialog-btn" type="button" class="dialog-close-btn" aria-label="Close exercise library">✕</button>
+      </div>
+      <div class="library-browser-controls">
+        <input id="library-search-input" type="search" placeholder="Search exercises, muscles, or equipment" autocomplete="off" class="library-browser-search">
+        <select id="library-category-filter" class="library-browser-filter" aria-label="Filter exercise category">
+          <option value="all">All categories</option>
+          <option value="strength">Strength</option>
+          <option value="cardio">Cardio</option>
+          <option value="stretching">Stretching</option>
+          <option value="plyometrics">Plyometrics</option>
+          <option value="powerlifting">Powerlifting</option>
+          <option value="olympic weightlifting">Olympic lifting</option>
+          <option value="strongman">Strongman</option>
+        </select>
+      </div>
+      <p id="library-results-summary" class="library-results-summary"></p>
+      <div id="library-results" class="library-results" aria-live="polite"></div>
+      <div class="library-attribution">
+        Exercise data and pictures: <a href="https://github.com/yuhonas/free-exercise-db" target="_blank" rel="noopener noreferrer">Free Exercise DB</a> (public domain / Unlicense).
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="exercise-guide-dialog" class="exercise-guide-dialog">
+    <article class="exercise-guide-shell">
+      <header class="exercise-guide-header">
+        <div>
+          <p class="exercise-guide-kicker">Exercise guide</p>
+          <h2 id="guide-title" class="exercise-guide-title">Exercise</h2>
+          <div id="guide-tags" class="guide-tags"></div>
+        </div>
+        <button id="close-guide-dialog-btn" type="button" class="dialog-close-btn" aria-label="Close exercise guide">✕</button>
+      </header>
+
+      <div class="guide-media-grid">
+        <section aria-label="Exercise pictures">
+          <h3 class="guide-section-title">Pictures</h3>
+          <div id="guide-images" class="guide-images"></div>
+        </section>
+        <section aria-label="Exercise video">
+          <h3 class="guide-section-title">Free video demonstration</h3>
+          <div id="guide-video" class="guide-video"><p class="guide-placeholder">Searching Wikimedia Commons…</p></div>
+        </section>
+      </div>
+
+      <section class="guide-instructions-section">
+        <h3 class="guide-section-title">How to do it</h3>
+        <ol id="guide-instructions" class="guide-instructions"></ol>
+      </section>
+
+      <section class="guide-safety-note">
+        Start with a comfortable range of motion and stop if you feel sharp pain, dizziness, or unusual discomfort. Exercise guides are educational and do not replace advice from a qualified professional.
+      </section>
+
+      <footer class="guide-source-footer">
+        <div id="guide-data-source"></div>
+        <div id="guide-video-source"></div>
+      </footer>
+    </article>
+  </dialog>
+
   <script>
     'use strict';
 
     const STORAGE_KEY = 'workout_tracker_weekly_v1';
     const PREVIOUS_STORAGE_KEY = 'workout_tracker_v2';
     const LEGACY_ROUTINE_KEY = 'workout_routine';
+    const LIBRARY_CACHE_KEY = 'workout_exercise_library_v1';
+    const VIDEO_CACHE_KEY = 'workout_commons_video_cache_v1';
+    const EXERCISE_LIBRARY_URL = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json';
+    const EXERCISE_IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
+    const FREE_EXERCISE_DB_URL = 'https://github.com/yuhonas/free-exercise-db';
+    const COMMONS_API_URL = 'https://commons.wikimedia.org/w/api.php';
+    const COMMONS_MEDIA_SEARCH_URL = 'https://commons.wikimedia.org/wiki/Special:MediaSearch';
+
+    const STARTER_LIBRARY = [
+      {
+        id: 'Walking_Treadmill', name: 'Walking, Treadmill', category: 'cardio', level: 'beginner', equipment: 'machine',
+        primaryMuscles: ['quadriceps'], secondaryMuscles: ['calves', 'hamstrings', 'glutes'],
+        instructions: [
+          'Stand tall on the treadmill with your gaze forward and your shoulders relaxed.',
+          'Start at a slow speed, then increase gradually until you reach a comfortable brisk pace.',
+          'Use a natural heel-to-toe stride and allow your arms to swing comfortably.',
+          'Slow the belt for a few minutes at the end instead of stopping suddenly.'
+        ], images: ['Walking_Treadmill/0.jpg', 'Walking_Treadmill/1.jpg']
+      },
+      {
+        id: 'Running_Treadmill', name: 'Running, Treadmill', category: 'cardio', level: 'beginner', equipment: 'machine',
+        primaryMuscles: ['quadriceps'], secondaryMuscles: ['calves', 'hamstrings', 'glutes'],
+        instructions: [
+          'Warm up by walking, then increase the treadmill speed gradually.',
+          'Run with a tall posture, a slight forward lean from the ankles, and relaxed shoulders.',
+          'Land softly beneath your body rather than reaching far forward with each step.',
+          'Reduce the speed gradually and finish with a walking cool-down.'
+        ], images: ['Running_Treadmill/0.jpg', 'Running_Treadmill/1.jpg']
+      },
+      {
+        id: 'Bicycling_Stationary', name: 'Bicycling, Stationary', category: 'cardio', level: 'beginner', equipment: 'machine',
+        primaryMuscles: ['quadriceps'], secondaryMuscles: ['calves', 'hamstrings', 'glutes'],
+        instructions: [
+          'Adjust the seat so your knee remains slightly bent at the bottom of the pedal stroke.',
+          'Keep your chest lifted, shoulders relaxed, and hands light on the handlebars.',
+          'Pedal smoothly at a pace and resistance you can control without rocking your hips.',
+          'Lower the resistance and pedal easily for a short cool-down.'
+        ], images: ['Bicycling_Stationary/0.jpg', 'Bicycling_Stationary/1.jpg']
+      },
+      {
+        id: 'Barbell_Full_Squat', name: 'Barbell Full Squat', category: 'strength', level: 'intermediate', equipment: 'barbell',
+        primaryMuscles: ['quadriceps'], secondaryMuscles: ['glutes', 'hamstrings', 'calves'],
+        instructions: [
+          'Place the bar securely across your upper back, brace your trunk, and stand with feet around shoulder width.',
+          'Sit your hips down and back while allowing your knees to track in the same direction as your toes.',
+          'Descend only as far as you can while keeping control and a stable torso.',
+          'Drive through your whole foot to stand and finish with your hips and knees extended.'
+        ], images: ['Barbell_Full_Squat/0.jpg', 'Barbell_Full_Squat/1.jpg']
+      },
+      {
+        id: 'Pushups', name: 'Pushups', category: 'strength', level: 'beginner', equipment: 'body only',
+        primaryMuscles: ['chest'], secondaryMuscles: ['triceps', 'shoulders'],
+        instructions: [
+          'Place your hands slightly wider than shoulder width and form a straight line from head to heels.',
+          'Brace your abdomen and lower your chest by bending your elbows.',
+          'Keep your elbows at a comfortable angle rather than flaring them straight sideways.',
+          'Press the floor away until your arms are straight without letting your hips sag.'
+        ], images: ['Pushups/0.jpg', 'Pushups/1.jpg']
+      },
+      {
+        id: 'Plank', name: 'Plank', category: 'strength', level: 'beginner', equipment: 'body only',
+        primaryMuscles: ['abdominals'], secondaryMuscles: ['lower back', 'shoulders'],
+        instructions: [
+          'Place your forearms on the floor with elbows below your shoulders.',
+          'Extend your legs and support yourself on your toes.',
+          'Brace your abdomen and glutes so your body stays in a straight line.',
+          'Breathe normally and stop the hold when your hips begin to sag or rise.'
+        ], images: ['Plank/0.jpg', 'Plank/1.jpg']
+      },
+      {
+        id: 'Bodyweight_Squat', name: 'Bodyweight Squat', category: 'strength', level: 'beginner', equipment: 'body only',
+        primaryMuscles: ['quadriceps'], secondaryMuscles: ['glutes', 'hamstrings'],
+        instructions: [
+          'Stand with your feet around shoulder width and keep your chest comfortably lifted.',
+          'Sit your hips down and back while your knees follow the direction of your toes.',
+          'Keep your whole foot in contact with the floor as you descend.',
+          'Push through your feet to return to standing.'
+        ], images: []
+      },
+      {
+        id: 'Forward_Lunge', name: 'Forward Lunge', category: 'strength', level: 'beginner', equipment: 'body only',
+        primaryMuscles: ['quadriceps'], secondaryMuscles: ['glutes', 'hamstrings'],
+        instructions: [
+          'Stand tall and take a controlled step forward.',
+          'Lower your back knee toward the floor while keeping the front knee aligned with the foot.',
+          'Keep your torso tall and your front heel planted.',
+          'Push through the front foot to return to the starting position, then change sides.'
+        ], images: []
+      },
+      {
+        id: 'Glute_Bridge', name: 'Glute Bridge', category: 'strength', level: 'beginner', equipment: 'body only',
+        primaryMuscles: ['glutes'], secondaryMuscles: ['hamstrings'],
+        instructions: [
+          'Lie on your back with knees bent and feet flat on the floor.',
+          'Brace your abdomen and squeeze your glutes to lift your hips.',
+          'Stop when your body forms a straight line from shoulders to knees without arching your lower back.',
+          'Lower your hips under control and repeat.'
+        ], images: []
+      },
+      {
+        id: 'Dumbbell_Bench_Press', name: 'Dumbbell Bench Press', category: 'strength', level: 'beginner', equipment: 'dumbbell',
+        primaryMuscles: ['chest'], secondaryMuscles: ['triceps', 'shoulders'],
+        instructions: [
+          'Lie on a bench with a dumbbell in each hand and keep your feet stable on the floor.',
+          'Hold the weights beside your chest with wrists stacked above elbows.',
+          'Press the dumbbells upward until your arms are nearly straight.',
+          'Lower the weights slowly to a comfortable depth and repeat.'
+        ], images: []
+      },
+      {
+        id: 'Bent_Over_Two-Dumbbell_Row', name: 'Bent Over Two-Dumbbell Row', category: 'strength', level: 'beginner', equipment: 'dumbbell',
+        primaryMuscles: ['middle back'], secondaryMuscles: ['biceps', 'lats'],
+        instructions: [
+          'Hold a dumbbell in each hand, soften your knees, and hinge forward from your hips.',
+          'Brace your trunk and keep your back in a stable neutral position.',
+          'Pull the dumbbells toward your sides while drawing your shoulder blades back.',
+          'Lower the weights under control without rounding your back.'
+        ], images: ['Bent_Over_Two-Dumbbell_Row/0.jpg', 'Bent_Over_Two-Dumbbell_Row/1.jpg']
+      },
+      {
+        id: 'Standing_Dumbbell_Press', name: 'Standing Dumbbell Press', category: 'strength', level: 'beginner', equipment: 'dumbbell',
+        primaryMuscles: ['shoulders'], secondaryMuscles: ['triceps'],
+        instructions: [
+          'Stand tall with a dumbbell at each shoulder and brace your abdomen.',
+          'Press the weights overhead without leaning backward.',
+          'Finish with the weights balanced over your shoulders.',
+          'Lower them slowly to the starting position.'
+        ], images: []
+      },
+      {
+        id: 'Barbell_Deadlift', name: 'Barbell Deadlift', category: 'strength', level: 'intermediate', equipment: 'barbell',
+        primaryMuscles: ['lower back'], secondaryMuscles: ['glutes', 'hamstrings', 'quadriceps'],
+        instructions: [
+          'Stand with the bar over the middle of your feet and grip it just outside your legs.',
+          'Brace your trunk, set your back, and keep the bar close to your body.',
+          'Push the floor away and stand by extending your knees and hips together.',
+          'Hinge at the hips and bend your knees to return the bar to the floor under control.'
+        ], images: ['Barbell_Deadlift/0.jpg', 'Barbell_Deadlift/1.jpg']
+      },
+      {
+        id: 'Pullups', name: 'Pullups', category: 'strength', level: 'intermediate', equipment: 'body only',
+        primaryMuscles: ['lats'], secondaryMuscles: ['biceps', 'middle back'],
+        instructions: [
+          'Grip a stable overhead bar and begin from a controlled hang.',
+          'Brace your abdomen and pull your chest toward the bar by driving your elbows down.',
+          'Avoid swinging or kicking to create momentum.',
+          'Lower yourself slowly until your arms are extended.'
+        ], images: ['Pullups/0.jpg', 'Pullups/1.jpg']
+      },
+      {
+        id: 'Burpee', name: 'Burpee', category: 'plyometrics', level: 'intermediate', equipment: 'body only',
+        primaryMuscles: ['quadriceps'], secondaryMuscles: ['chest', 'shoulders', 'triceps', 'hamstrings'],
+        instructions: [
+          'Stand tall, squat down, and place your hands on the floor.',
+          'Step or jump your feet back into a strong plank position.',
+          'Step or jump your feet forward beneath your body.',
+          'Stand up or add a small jump, then repeat with control.'
+        ], images: []
+      }
+    ];
+
+    const COMMONS_VIDEO_TITLES = {
+      'barbell full squat': 'File:Squat - exercise demonstration video.webm',
+      'squat': 'File:Squat - exercise demonstration video.webm',
+      'barbell deadlift': 'File:Deadlift - exercise demonstration video.webm',
+      'deadlift': 'File:Deadlift - exercise demonstration video.webm',
+      'bench press': 'File:Bench press - exercise demonstration video.webm',
+      'dumbbell bench press': 'File:Video showing how to perform the dumbbell bench press and the dumbbell incline bench press.webm',
+      'bent over two dumbbell row': 'File:Bent-over row - exercise demonstration video.webm',
+      'bent over row': 'File:Bent-over row - exercise demonstration video.webm',
+      'pullups': 'File:Pull-ups - exercise demonstration video.webm',
+      'pull ups': 'File:Pull-ups - exercise demonstration video.webm',
+      'shoulder press': 'File:Shoulder press - exercise demonstration video.webm',
+      'standing dumbbell press': 'File:Shoulder press - exercise demonstration video.webm',
+      'incline press': 'File:Incline press - exercise demonstration video.webm',
+      'leg raises': 'File:Leg raises - exercise demonstration video.webm',
+      'hanging crunches': 'File:Hanging crunches - exercise demonstration video.webm',
+      'leg press': 'File:Hip Sled - How to perform a 45 degree leg press.webm',
+      'barbell curl': 'File:Video of EZ Bar Curl and Straight Bar Curl.webm',
+      'kettlebell farmer walk': 'File:Kettlebell Farmer Walks.webm',
+      'burpee': 'File:Burpee.webm'
+    };
+
+    const LIBRARY_ALIASES = {
+      'barbell squats': 'Barbell_Full_Squat',
+      'barbell squat': 'Barbell_Full_Squat',
+      'squats': 'Barbell_Full_Squat',
+      'push up': 'Pushups',
+      'push ups': 'Pushups',
+      'pushup': 'Pushups',
+      'pushups': 'Pushups',
+      'walking': 'Walking_Treadmill',
+      'brisk walking': 'Walking_Treadmill',
+      'running': 'Running_Treadmill',
+      'jogging': 'Running_Treadmill',
+      'cycling': 'Bicycling_Stationary',
+      'stationary bike': 'Bicycling_Stationary',
+      'bike': 'Bicycling_Stationary',
+      'bodyweight squats': 'Bodyweight_Squat',
+      'lunges': 'Forward_Lunge',
+      'dumbbell row': 'Bent_Over_Two-Dumbbell_Row',
+      'shoulder press': 'Standing_Dumbbell_Press',
+      'deadlift': 'Barbell_Deadlift',
+      'pull ups': 'Pullups',
+      'pull up': 'Pullups'
+    };
+
     const DAYS = [
       { key: 'monday', short: 'Mon', name: 'Monday' },
       { key: 'tuesday', short: 'Tue', name: 'Tuesday' },
@@ -317,9 +617,9 @@
     ];
 
     const DEFAULT_ROUTINE = [
-      { id: 1, name: 'Barbell Squats', type: 'reps', completed: false, reps: 8, targetSets: 3, sets: 0, durationSeconds: 0 },
-      { id: 2, name: 'Push-ups', type: 'reps', completed: false, reps: 12, targetSets: 3, sets: 0, durationSeconds: 0 },
-      { id: 3, name: 'Walking', type: 'duration', completed: false, reps: 0, targetSets: 0, sets: 0, durationSeconds: 1800 }
+      { id: 1, name: 'Barbell Squats', type: 'reps', completed: false, reps: 8, targetSets: 3, sets: 0, durationSeconds: 0, libraryId: 'Barbell_Full_Squat' },
+      { id: 2, name: 'Push-ups', type: 'reps', completed: false, reps: 12, targetSets: 3, sets: 0, durationSeconds: 0, libraryId: 'Pushups' },
+      { id: 3, name: 'Walking', type: 'duration', completed: false, reps: 0, targetSets: 0, sets: 0, durationSeconds: 1800, libraryId: 'Walking_Treadmill' }
     ];
 
     const state = {
@@ -346,6 +646,7 @@
       nowTrainingDay: document.getElementById('now-training-day'),
       exerciseForm: document.getElementById('exercise-form'),
       exerciseInput: document.getElementById('exercise-input'),
+      exerciseSuggestions: document.getElementById('exercise-suggestions'),
       exerciseTypeInput: document.getElementById('exercise-type-input'),
       repsFields: document.getElementById('reps-fields'),
       durationFields: document.getElementById('duration-fields'),
@@ -354,9 +655,19 @@
       durationMinutesInput: document.getElementById('duration-minutes-input'),
       durationSecondsInput: document.getElementById('duration-seconds-input'),
       exerciseFormHelp: document.getElementById('exercise-form-help'),
+      libraryStatus: document.getElementById('library-status'),
+      browseLibrary: document.getElementById('browse-library-btn'),
+      libraryPreview: document.getElementById('library-preview'),
+      libraryPreviewImage: document.getElementById('library-preview-image'),
+      libraryPreviewTitle: document.getElementById('library-preview-title'),
+      libraryPreviewMeta: document.getElementById('library-preview-meta'),
+      libraryPreviewStep: document.getElementById('library-preview-step'),
+      previewGuide: document.getElementById('preview-guide-btn'),
+      clearLibraryMatch: document.getElementById('clear-library-match-btn'),
       routineList: document.getElementById('routine-list'),
       activeTitle: document.getElementById('active-exercise-title'),
       activeTarget: document.getElementById('active-target'),
+      activeGuide: document.getElementById('active-guide-btn'),
       repsMetrics: document.getElementById('reps-metrics'),
       durationPanel: document.getElementById('duration-panel'),
       setDisplay: document.getElementById('set-count'),
@@ -394,11 +705,34 @@
       confirmCopy: document.getElementById('confirm-copy-btn'),
       installButton: document.getElementById('install-app-btn'),
       installDialog: document.getElementById('install-dialog'),
-      closeInstallDialog: document.getElementById('close-install-dialog-btn')
+      closeInstallDialog: document.getElementById('close-install-dialog-btn'),
+      libraryDialog: document.getElementById('library-dialog'),
+      closeLibraryDialog: document.getElementById('close-library-dialog-btn'),
+      librarySearchInput: document.getElementById('library-search-input'),
+      libraryCategoryFilter: document.getElementById('library-category-filter'),
+      libraryResultsSummary: document.getElementById('library-results-summary'),
+      libraryResults: document.getElementById('library-results'),
+      guideDialog: document.getElementById('exercise-guide-dialog'),
+      closeGuideDialog: document.getElementById('close-guide-dialog-btn'),
+      guideTitle: document.getElementById('guide-title'),
+      guideTags: document.getElementById('guide-tags'),
+      guideImages: document.getElementById('guide-images'),
+      guideVideo: document.getElementById('guide-video'),
+      guideInstructions: document.getElementById('guide-instructions'),
+      guideDataSource: document.getElementById('guide-data-source'),
+      guideVideoSource: document.getElementById('guide-video-source')
     };
 
     let deferredInstallPrompt = null;
     let sharedAudioContext = null;
+    let exerciseLibrary = [];
+    let libraryById = new Map();
+    let libraryByName = new Map();
+    let selectedLibraryEntry = null;
+    let suggestionIndex = -1;
+    let visibleSuggestions = [];
+    let videoCache = {};
+    let guideRequestToken = 0;
 
     function isIOSDevice() {
       return /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
@@ -432,6 +766,566 @@
       } catch (error) {
         showStatus('Offline support could not be enabled on this host.', 'error');
       }
+    }
+
+    function normalizeSearchText(value) {
+      return String(value ?? '')
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    }
+
+    function cleanLibraryEntry(raw) {
+      if (!raw || typeof raw !== 'object') return null;
+      const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+      if (!name) return null;
+      const id = typeof raw.id === 'string' && raw.id.trim()
+        ? raw.id.trim()
+        : name.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+      const list = value => Array.isArray(value) ? value.filter(item => typeof item === 'string' && item.trim()).map(item => item.trim()) : [];
+      return {
+        id,
+        name,
+        force: typeof raw.force === 'string' ? raw.force : null,
+        level: typeof raw.level === 'string' ? raw.level : 'unknown',
+        mechanic: typeof raw.mechanic === 'string' ? raw.mechanic : null,
+        equipment: typeof raw.equipment === 'string' ? raw.equipment : 'unspecified',
+        primaryMuscles: list(raw.primaryMuscles),
+        secondaryMuscles: list(raw.secondaryMuscles),
+        instructions: list(raw.instructions),
+        category: typeof raw.category === 'string' ? raw.category : 'other',
+        images: list(raw.images),
+        searchText: normalizeSearchText([
+          name,
+          raw.category,
+          raw.level,
+          raw.equipment,
+          ...list(raw.primaryMuscles),
+          ...list(raw.secondaryMuscles)
+        ].filter(Boolean).join(' '))
+      };
+    }
+
+    function setExerciseLibrary(entries, sourceLabel) {
+      const deduped = new Map();
+      STARTER_LIBRARY.map(cleanLibraryEntry).filter(Boolean).forEach(entry => deduped.set(entry.id, entry));
+      entries.map(cleanLibraryEntry).filter(Boolean).forEach(entry => deduped.set(entry.id, entry));
+      exerciseLibrary = [...deduped.values()].sort((a, b) => a.name.localeCompare(b.name));
+      libraryById = new Map(exerciseLibrary.map(entry => [entry.id, entry]));
+      libraryByName = new Map(exerciseLibrary.map(entry => [normalizeSearchText(entry.name), entry]));
+      elements.libraryStatus.textContent = `${exerciseLibrary.length} exercises available${sourceLabel ? ` • ${sourceLabel}` : ''}`;
+      renderRoutine();
+      renderActivePanel();
+      if (elements.libraryDialog.open) renderLibraryBrowser();
+    }
+
+    async function loadExerciseLibrary() {
+      let cached = [];
+      try {
+        const rawCache = localStorage.getItem(LIBRARY_CACHE_KEY);
+        if (rawCache) {
+          const parsed = JSON.parse(rawCache);
+          cached = Array.isArray(parsed.entries) ? parsed.entries : [];
+        }
+      } catch (error) {
+        cached = [];
+      }
+
+      setExerciseLibrary(cached, cached.length ? 'saved offline' : 'starter collection');
+
+      if (!navigator.onLine && cached.length) return;
+      elements.libraryStatus.textContent = `${exerciseLibrary.length} exercises available • updating…`;
+
+      try {
+        const response = await fetch(EXERCISE_LIBRARY_URL, { cache: 'force-cache' });
+        if (!response.ok) throw new Error(`Library request failed: ${response.status}`);
+        const fresh = await response.json();
+        if (!Array.isArray(fresh) || fresh.length < 100) throw new Error('Exercise library response was incomplete.');
+        const cleaned = fresh.map(cleanLibraryEntry).filter(Boolean).map(({ searchText, ...entry }) => entry);
+        try {
+          localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify({ version: 1, savedAt: Date.now(), entries: cleaned }));
+        } catch (storageError) {
+          // The app still works from the network response when browser storage is full.
+        }
+        setExerciseLibrary(cleaned, 'saved offline');
+      } catch (error) {
+        elements.libraryStatus.textContent = `${exerciseLibrary.length} exercises available • offline collection`;
+      }
+    }
+
+    function resolveLibraryEntry(exerciseOrName) {
+      if (!exerciseOrName) return null;
+      if (typeof exerciseOrName === 'object' && exerciseOrName.libraryId && libraryById.has(exerciseOrName.libraryId)) {
+        return libraryById.get(exerciseOrName.libraryId);
+      }
+      const name = typeof exerciseOrName === 'string' ? exerciseOrName : exerciseOrName.name;
+      if (!name) return null;
+      const normalizedName = normalizeSearchText(name);
+      const aliasId = LIBRARY_ALIASES[normalizedName];
+      return libraryByName.get(normalizedName) ?? (aliasId ? libraryById.get(aliasId) : null) ?? null;
+    }
+
+    function scoreLibraryEntry(entry, query) {
+      const normalizedName = normalizeSearchText(entry.name);
+      if (!query) return STARTER_LIBRARY.some(item => item.id === entry.id) ? 100 : 10;
+      if (normalizedName === query) return 1000;
+      if (normalizedName.startsWith(query)) return 850 - normalizedName.length;
+      const words = normalizedName.split(' ');
+      if (words.some(word => word.startsWith(query))) return 700 - normalizedName.length;
+      if (normalizedName.includes(query)) return 550 - normalizedName.indexOf(query);
+      if (entry.searchText.includes(query)) return 300 - entry.searchText.indexOf(query);
+      const queryWords = query.split(' ').filter(Boolean);
+      const matchedWords = queryWords.filter(word => entry.searchText.includes(word)).length;
+      return matchedWords ? matchedWords * 90 : -1;
+    }
+
+    function searchExerciseLibrary(query, limit = 10, category = 'all') {
+      const normalizedQuery = normalizeSearchText(query);
+      return exerciseLibrary
+        .filter(entry => category === 'all' || entry.category === category)
+        .map(entry => ({ entry, score: scoreLibraryEntry(entry, normalizedQuery) }))
+        .filter(item => item.score >= 0)
+        .sort((a, b) => b.score - a.score || a.entry.name.localeCompare(b.entry.name))
+        .slice(0, limit)
+        .map(item => item.entry);
+    }
+
+    function exerciseImageUrl(path) {
+      if (!path) return '';
+      if (/^https?:\/\//i.test(path)) return path;
+      return `${EXERCISE_IMAGE_BASE}${path.split('/').map(part => encodeURIComponent(part)).join('/')}`;
+    }
+
+    function inferExerciseType(entry) {
+      const name = normalizeSearchText(entry?.name);
+      if (entry?.category === 'cardio' || entry?.category === 'stretching') return 'duration';
+      if (/walking|running|jogging|cycling|bicycling|treadmill|elliptical|swimming|rowing machine|stair|plank|wall sit|dead hang|stretch/.test(name)) return 'duration';
+      return 'reps';
+    }
+
+    function suggestedDurationSeconds(entry) {
+      const name = normalizeSearchText(entry?.name);
+      if (/walking|cycling|bicycling|elliptical/.test(name)) return 30 * 60;
+      if (/running|jogging|rowing machine|stair/.test(name)) return 20 * 60;
+      if (/stretch/.test(name)) return 45;
+      if (/plank|wall sit|dead hang/.test(name)) return 60;
+      return 10 * 60;
+    }
+
+    function clearLibrarySelection(keepInput = true) {
+      selectedLibraryEntry = null;
+      elements.libraryPreview.hidden = true;
+      elements.libraryPreviewImage.removeAttribute('src');
+      if (!keepInput) elements.exerciseInput.value = '';
+    }
+
+    function selectLibraryEntry(entry, options = {}) {
+      if (!entry) return;
+      selectedLibraryEntry = entry;
+      elements.exerciseInput.value = entry.name;
+      elements.exerciseInput.setAttribute('aria-expanded', 'false');
+      hideSuggestions();
+
+      const inferredType = inferExerciseType(entry);
+      elements.exerciseTypeInput.value = inferredType;
+      if (inferredType === 'duration') {
+        const duration = suggestedDurationSeconds(entry);
+        elements.durationMinutesInput.value = String(Math.floor(duration / 60));
+        elements.durationSecondsInput.value = String(duration % 60);
+      }
+      updateExerciseFormFields();
+      renderLibraryPreview(entry);
+      if (options.closeBrowser && elements.libraryDialog.open) elements.libraryDialog.close();
+      if (options.focusForm !== false) elements.exerciseInput.focus();
+    }
+
+    function renderLibraryPreview(entry) {
+      const image = entry.images[0] ? exerciseImageUrl(entry.images[0]) : '';
+      elements.libraryPreview.hidden = false;
+      elements.libraryPreviewTitle.textContent = entry.name;
+      elements.libraryPreviewMeta.textContent = [entry.category, entry.level, entry.equipment].filter(Boolean).join(' • ');
+      elements.libraryPreviewStep.textContent = entry.instructions[0] || 'Open the full guide for instructions and available media.';
+      if (image) {
+        elements.libraryPreviewImage.src = image;
+        elements.libraryPreviewImage.alt = `${entry.name} starting position`;
+        elements.libraryPreviewImage.hidden = false;
+      } else {
+        elements.libraryPreviewImage.hidden = true;
+      }
+    }
+
+    function hideSuggestions() {
+      visibleSuggestions = [];
+      suggestionIndex = -1;
+      elements.exerciseSuggestions.hidden = true;
+      elements.exerciseSuggestions.replaceChildren();
+      elements.exerciseInput.setAttribute('aria-expanded', 'false');
+      elements.exerciseInput.removeAttribute('aria-activedescendant');
+    }
+
+    function renderExerciseSuggestions() {
+      const query = elements.exerciseInput.value.trim();
+      if (!query) {
+        hideSuggestions();
+        return;
+      }
+      visibleSuggestions = searchExerciseLibrary(query, 8);
+      suggestionIndex = -1;
+      elements.exerciseSuggestions.replaceChildren();
+
+      if (!visibleSuggestions.length) {
+        const empty = document.createElement('p');
+        empty.className = 'exercise-suggestion-empty';
+        empty.textContent = 'No library match. You can still add this as a custom exercise.';
+        elements.exerciseSuggestions.appendChild(empty);
+      } else {
+        visibleSuggestions.forEach((entry, index) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'exercise-suggestion';
+          button.dataset.libraryId = entry.id;
+          button.id = `exercise-suggestion-${index}`;
+          button.setAttribute('role', 'option');
+          button.setAttribute('aria-selected', 'false');
+
+          const image = document.createElement('img');
+          image.className = 'exercise-suggestion-image';
+          image.alt = '';
+          image.loading = 'lazy';
+          if (entry.images[0]) image.src = exerciseImageUrl(entry.images[0]);
+          else image.hidden = true;
+          image.addEventListener('error', () => { image.hidden = true; }, { once: true });
+
+          const copy = document.createElement('span');
+          copy.className = 'exercise-suggestion-copy';
+          const title = document.createElement('strong');
+          title.textContent = entry.name;
+          const meta = document.createElement('small');
+          meta.textContent = [entry.category, entry.equipment, entry.level].filter(Boolean).join(' • ');
+          copy.append(title, meta);
+
+          const type = document.createElement('span');
+          type.className = 'exercise-suggestion-type';
+          type.textContent = inferExerciseType(entry) === 'duration' ? 'Timed' : 'Sets';
+          button.append(image, copy, type);
+          elements.exerciseSuggestions.appendChild(button);
+        });
+      }
+
+      elements.exerciseSuggestions.hidden = false;
+      elements.exerciseInput.setAttribute('aria-expanded', 'true');
+    }
+
+    function updateSuggestionHighlight() {
+      const options = [...elements.exerciseSuggestions.querySelectorAll('[role="option"]')];
+      options.forEach((option, index) => {
+        const selected = index === suggestionIndex;
+        option.classList.toggle('is-active', selected);
+        option.setAttribute('aria-selected', String(selected));
+      });
+      if (suggestionIndex >= 0 && options[suggestionIndex]) {
+        elements.exerciseInput.setAttribute('aria-activedescendant', options[suggestionIndex].id);
+        options[suggestionIndex].scrollIntoView({ block: 'nearest' });
+      } else {
+        elements.exerciseInput.removeAttribute('aria-activedescendant');
+      }
+    }
+
+    function handleExerciseInputKeydown(event) {
+      if (elements.exerciseSuggestions.hidden || !visibleSuggestions.length) {
+        if (event.key === 'Escape') hideSuggestions();
+        return;
+      }
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        suggestionIndex = (suggestionIndex + 1) % visibleSuggestions.length;
+        updateSuggestionHighlight();
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        suggestionIndex = (suggestionIndex - 1 + visibleSuggestions.length) % visibleSuggestions.length;
+        updateSuggestionHighlight();
+      } else if (event.key === 'Enter' && suggestionIndex >= 0) {
+        event.preventDefault();
+        selectLibraryEntry(visibleSuggestions[suggestionIndex]);
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        hideSuggestions();
+      }
+    }
+
+    function openLibraryBrowser() {
+      elements.librarySearchInput.value = elements.exerciseInput.value.trim();
+      elements.libraryCategoryFilter.value = 'all';
+      renderLibraryBrowser();
+      elements.libraryDialog.showModal();
+      window.setTimeout(() => elements.librarySearchInput.focus(), 0);
+    }
+
+    function renderLibraryBrowser() {
+      const query = elements.librarySearchInput.value.trim();
+      const category = elements.libraryCategoryFilter.value;
+      const results = searchExerciseLibrary(query, 60, category);
+      elements.libraryResults.replaceChildren();
+      elements.libraryResultsSummary.textContent = `${results.length} result${results.length === 1 ? '' : 's'} shown • ${exerciseLibrary.length} exercises stored`;
+
+      if (!results.length) {
+        const empty = document.createElement('p');
+        empty.className = 'library-browser-empty';
+        empty.textContent = 'No matching exercises. Try a muscle such as chest, legs, back, or shoulders.';
+        elements.libraryResults.appendChild(empty);
+        return;
+      }
+
+      results.forEach(entry => {
+        const card = document.createElement('article');
+        card.className = 'library-result-card';
+
+        const image = document.createElement('img');
+        image.className = 'library-result-image';
+        image.alt = '';
+        image.loading = 'lazy';
+        if (entry.images[0]) image.src = exerciseImageUrl(entry.images[0]);
+        else image.hidden = true;
+        image.addEventListener('error', () => { image.hidden = true; }, { once: true });
+
+        const copy = document.createElement('div');
+        copy.className = 'library-result-copy';
+        const title = document.createElement('h3');
+        title.textContent = entry.name;
+        const meta = document.createElement('p');
+        meta.textContent = [entry.category, entry.level, entry.equipment].filter(Boolean).join(' • ');
+        const muscles = document.createElement('p');
+        muscles.textContent = entry.primaryMuscles.length ? `Works: ${entry.primaryMuscles.join(', ')}` : 'Muscle information unavailable';
+        copy.append(title, meta, muscles);
+
+        const actions = document.createElement('div');
+        actions.className = 'library-result-actions';
+        const selectButton = document.createElement('button');
+        selectButton.type = 'button';
+        selectButton.className = 'library-select-btn';
+        selectButton.textContent = 'Choose';
+        selectButton.addEventListener('click', () => selectLibraryEntry(entry, { closeBrowser: true }));
+        const guideButton = document.createElement('button');
+        guideButton.type = 'button';
+        guideButton.className = 'library-guide-btn';
+        guideButton.textContent = 'Guide';
+        guideButton.addEventListener('click', () => openExerciseGuide(entry));
+        actions.append(guideButton, selectButton);
+
+        card.append(image, copy, actions);
+        elements.libraryResults.appendChild(card);
+      });
+    }
+
+    function stripHtml(value) {
+      const element = document.createElement('div');
+      element.innerHTML = String(value ?? '');
+      return element.textContent.trim();
+    }
+
+    function videoCacheLoad() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(VIDEO_CACHE_KEY) || '{}');
+        videoCache = parsed && typeof parsed === 'object' ? parsed : {};
+      } catch (error) {
+        videoCache = {};
+      }
+    }
+
+    function videoCacheSave() {
+      try { localStorage.setItem(VIDEO_CACHE_KEY, JSON.stringify(videoCache)); } catch (error) { /* optional cache */ }
+    }
+
+    function commonsVideoTitleFor(entry) {
+      const name = normalizeSearchText(entry.name);
+      if (COMMONS_VIDEO_TITLES[name]) return COMMONS_VIDEO_TITLES[name];
+      const matchingKey = Object.keys(COMMONS_VIDEO_TITLES).find(key => name.includes(key) || key.includes(name));
+      return matchingKey ? COMMONS_VIDEO_TITLES[matchingKey] : null;
+    }
+
+    function parseCommonsVideoPage(page) {
+      const info = page?.imageinfo?.[0];
+      if (!info || !String(info.mime || '').startsWith('video/')) return null;
+      const metadata = info.extmetadata || {};
+      return {
+        title: String(page.title || '').replace(/^File:/, ''),
+        url: info.url,
+        pageUrl: info.descriptionurl || `https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title)}`,
+        mime: info.mime,
+        license: stripHtml(metadata.LicenseShortName?.value || metadata.UsageTerms?.value || 'License listed on Wikimedia Commons'),
+        artist: stripHtml(metadata.Artist?.value || ''),
+        credit: stripHtml(metadata.Credit?.value || '')
+      };
+    }
+
+    async function fetchCommonsVideo(entry) {
+      const cacheKey = normalizeSearchText(entry.name);
+      if (videoCache[cacheKey]) return videoCache[cacheKey];
+
+      const exactTitle = commonsVideoTitleFor(entry);
+      if (exactTitle) {
+        const exactParams = new URLSearchParams({
+          action: 'query', format: 'json', origin: '*', prop: 'imageinfo',
+          iiprop: 'url|mime|extmetadata', titles: exactTitle
+        });
+        const response = await fetch(`${COMMONS_API_URL}?${exactParams}`);
+        if (response.ok) {
+          const data = await response.json();
+          const page = Object.values(data.query?.pages || {})[0];
+          const parsed = parseCommonsVideoPage(page);
+          if (parsed) {
+            videoCache[cacheKey] = parsed;
+            videoCacheSave();
+            return parsed;
+          }
+        }
+      }
+
+      const searchTerms = `${entry.name} exercise demonstration`;
+      const searchParams = new URLSearchParams({
+        action: 'query', format: 'json', origin: '*', generator: 'search',
+        gsrsearch: searchTerms, gsrnamespace: '6', gsrlimit: '10',
+        prop: 'imageinfo', iiprop: 'url|mime|extmetadata'
+      });
+      const response = await fetch(`${COMMONS_API_URL}?${searchParams}`);
+      if (!response.ok) throw new Error(`Video search failed: ${response.status}`);
+      const data = await response.json();
+      const videos = Object.values(data.query?.pages || {}).map(parseCommonsVideoPage).filter(Boolean);
+      const best = videos.find(video => normalizeSearchText(video.title).includes(normalizeSearchText(entry.name).split(' ')[0])) || videos[0] || null;
+      if (best) {
+        videoCache[cacheKey] = best;
+        videoCacheSave();
+      }
+      return best;
+    }
+
+    function renderGuideImages(entry) {
+      elements.guideImages.replaceChildren();
+      if (!entry.images.length) {
+        const placeholder = document.createElement('p');
+        placeholder.className = 'guide-placeholder';
+        placeholder.textContent = 'No public-domain picture is available for this exercise yet.';
+        elements.guideImages.appendChild(placeholder);
+        return;
+      }
+      entry.images.slice(0, 2).forEach((path, index) => {
+        const figure = document.createElement('figure');
+        figure.className = 'guide-image-card';
+        const image = document.createElement('img');
+        image.src = exerciseImageUrl(path);
+        image.alt = `${entry.name} ${index === 0 ? 'starting' : 'finishing'} position`;
+        image.loading = 'lazy';
+        const caption = document.createElement('figcaption');
+        caption.textContent = index === 0 ? 'Starting position' : 'Movement / finishing position';
+        image.addEventListener('error', () => {
+          figure.replaceChildren();
+          const failed = document.createElement('p');
+          failed.className = 'guide-placeholder';
+          failed.textContent = 'Picture unavailable while offline.';
+          figure.appendChild(failed);
+        }, { once: true });
+        figure.append(image, caption);
+        elements.guideImages.appendChild(figure);
+      });
+    }
+
+    function renderGuideInstructions(entry) {
+      elements.guideInstructions.replaceChildren();
+      const steps = entry.instructions.length ? entry.instructions : ['No step-by-step instructions are available for this exercise.'];
+      steps.forEach(step => {
+        const item = document.createElement('li');
+        item.textContent = step;
+        elements.guideInstructions.appendChild(item);
+      });
+    }
+
+    async function renderGuideVideo(entry, requestToken) {
+      elements.guideVideo.replaceChildren();
+      const loading = document.createElement('p');
+      loading.className = 'guide-placeholder';
+      loading.textContent = navigator.onLine ? 'Searching Wikimedia Commons for a free demonstration…' : 'Connect to the internet to load a free video demonstration.';
+      elements.guideVideo.appendChild(loading);
+      elements.guideVideoSource.textContent = '';
+      if (!navigator.onLine) return;
+
+      try {
+        const videoInfo = await fetchCommonsVideo(entry);
+        if (requestToken !== guideRequestToken || !elements.guideDialog.open) return;
+        elements.guideVideo.replaceChildren();
+        if (!videoInfo) throw new Error('No matching video');
+
+        const video = document.createElement('video');
+        video.className = 'guide-video-player';
+        video.controls = true;
+        video.playsInline = true;
+        video.preload = 'metadata';
+        video.src = videoInfo.url;
+        const fallback = document.createElement('a');
+        fallback.href = videoInfo.pageUrl;
+        fallback.target = '_blank';
+        fallback.rel = 'noopener noreferrer';
+        fallback.textContent = 'Open this video on Wikimedia Commons';
+        video.appendChild(fallback);
+        elements.guideVideo.appendChild(video);
+
+        const source = document.createElement('span');
+        source.textContent = `Video: ${videoInfo.title} • ${videoInfo.license}`;
+        const sourceLink = document.createElement('a');
+        sourceLink.href = videoInfo.pageUrl;
+        sourceLink.target = '_blank';
+        sourceLink.rel = 'noopener noreferrer';
+        sourceLink.textContent = ' View source and attribution';
+        elements.guideVideoSource.append(source, sourceLink);
+      } catch (error) {
+        if (requestToken !== guideRequestToken || !elements.guideDialog.open) return;
+        elements.guideVideo.replaceChildren();
+        const message = document.createElement('p');
+        message.className = 'guide-placeholder';
+        message.textContent = 'A matching embedded video was not found.';
+        const link = document.createElement('a');
+        const params = new URLSearchParams({ search: `${entry.name} exercise`, type: 'video' });
+        link.href = `${COMMONS_MEDIA_SEARCH_URL}?${params}`;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.className = 'guide-external-video-link';
+        link.textContent = 'Search free videos on Wikimedia Commons';
+        elements.guideVideo.append(message, link);
+      }
+    }
+
+    function openExerciseGuide(exerciseOrEntry) {
+      const entry = exerciseOrEntry?.instructions ? exerciseOrEntry : resolveLibraryEntry(exerciseOrEntry);
+      if (!entry) {
+        showStatus('No stored guide matches this custom exercise yet.', 'error');
+        return;
+      }
+
+      guideRequestToken += 1;
+      const requestToken = guideRequestToken;
+      elements.guideTitle.textContent = entry.name;
+      elements.guideTags.replaceChildren();
+      [entry.category, entry.level, entry.equipment, ...entry.primaryMuscles.slice(0, 3)].filter(Boolean).forEach(value => {
+        const tag = document.createElement('span');
+        tag.textContent = value;
+        elements.guideTags.appendChild(tag);
+      });
+      renderGuideImages(entry);
+      renderGuideInstructions(entry);
+      elements.guideDataSource.replaceChildren();
+      const sourceText = document.createElement('span');
+      sourceText.textContent = 'Exercise instructions and pictures: Free Exercise DB (public domain / Unlicense).';
+      const sourceLink = document.createElement('a');
+      sourceLink.href = FREE_EXERCISE_DB_URL;
+      sourceLink.target = '_blank';
+      sourceLink.rel = 'noopener noreferrer';
+      sourceLink.textContent = ' Open source';
+      elements.guideDataSource.append(sourceText, sourceLink);
+      elements.guideVideoSource.textContent = '';
+
+      if (!elements.guideDialog.open) elements.guideDialog.showModal();
+      void renderGuideVideo(entry, requestToken);
     }
 
     function getTodayKey() {
@@ -483,7 +1377,8 @@
         reps: type === 'reps' ? parseInteger(raw.reps, 10, 1, 999) : 0,
         targetSets: type === 'reps' ? parseInteger(raw.targetSets, 3, 1, 20) : 0,
         sets: type === 'reps' ? parseInteger(raw.sets, 0, 0, 999) : 0,
-        durationSeconds: type === 'duration' ? parseInteger(raw.durationSeconds, 1800, 5, 86400) : 0
+        durationSeconds: type === 'duration' ? parseInteger(raw.durationSeconds, 1800, 5, 86400) : 0,
+        libraryId: typeof raw.libraryId === 'string' && raw.libraryId.trim() ? raw.libraryId.trim().slice(0, 160) : null
       };
     }
 
@@ -708,6 +1603,19 @@
         checkbox.className = 'w-5 h-5 shrink-0 accent-indigo-500 cursor-pointer';
         checkbox.setAttribute('aria-label', `Mark ${exercise.name} complete`);
 
+        const guideEntry = resolveLibraryEntry(exercise);
+        if (guideEntry?.images[0]) {
+          const thumb = document.createElement('img');
+          thumb.className = 'routine-guide-thumb';
+          thumb.src = exerciseImageUrl(guideEntry.images[0]);
+          thumb.alt = '';
+          thumb.loading = 'lazy';
+          thumb.addEventListener('error', () => { thumb.hidden = true; }, { once: true });
+          left.append(checkbox, thumb);
+        } else {
+          left.appendChild(checkbox);
+        }
+
         const textButton = document.createElement('button');
         textButton.type = 'button';
         textButton.dataset.action = 'select';
@@ -726,10 +1634,13 @@
         meta.className = 'text-xs text-slate-400 mt-1';
 
         textButton.append(name, meta);
-        left.append(checkbox, textButton);
+        left.appendChild(textButton);
 
         const controls = document.createElement('div');
         controls.className = 'flex items-center gap-1 shrink-0';
+        if (guideEntry) {
+          controls.append(createButton('ⓘ', `Open guide for ${exercise.name}`, 'p-2 text-indigo-300 hover:text-indigo-100 rounded-lg transition-colors', 'guide'));
+        }
         controls.append(
           createButton('✎', `Edit ${exercise.name}`, 'p-2 text-slate-400 hover:text-indigo-300 rounded-lg transition-colors', 'edit'),
           createButton('▲', 'Move up', 'p-2 text-slate-400 hover:text-slate-200 disabled:opacity-20 rounded-lg', 'up', index === 0),
@@ -811,6 +1722,9 @@
       document.querySelectorAll('.duration-btn').forEach(button => {
         button.disabled = !isDuration;
       });
+      const activeGuideEntry = resolveLibraryEntry(active);
+      elements.activeGuide.hidden = !activeGuideEntry;
+      elements.activeGuide.disabled = !activeGuideEntry;
       elements.completeCurrent.disabled = disabled;
       elements.nextExercise.disabled = currentRoutine().length < 2;
       elements.resetSession.disabled = currentRoutine().length === 0;
@@ -859,6 +1773,7 @@
     function addExercise(event) {
       event.preventDefault();
       const name = elements.exerciseInput.value.trim().slice(0, 80);
+      const matchedLibraryEntry = selectedLibraryEntry ?? resolveLibraryEntry(name);
       const type = elements.exerciseTypeInput.value === 'duration' ? 'duration' : 'reps';
       if (!name) return;
 
@@ -873,14 +1788,16 @@
         }
         exercise = {
           id: uniqueId(), name, type, completed: false,
-          reps: 0, targetSets: 0, sets: 0, durationSeconds: clamp(durationSeconds, 5, 86400)
+          reps: 0, targetSets: 0, sets: 0, durationSeconds: clamp(durationSeconds, 5, 86400),
+          libraryId: matchedLibraryEntry?.id ?? null
         };
       } else {
         exercise = {
           id: uniqueId(), name, type, completed: false,
           reps: parseInteger(elements.repsInput.value, 10, 1, 999),
           targetSets: parseInteger(elements.setsInput.value, 3, 1, 20),
-          sets: 0, durationSeconds: 0
+          sets: 0, durationSeconds: 0,
+          libraryId: matchedLibraryEntry?.id ?? null
         };
       }
 
@@ -890,6 +1807,8 @@
       if (becomesActive) day.activeId = exercise.id;
 
       elements.exerciseInput.value = '';
+      clearLibrarySelection();
+      hideSuggestions();
       syncUI();
       if (becomesActive) configureTimerForActive();
       elements.exerciseInput.focus();
@@ -909,7 +1828,10 @@
 
       const action = control.dataset.action;
       let resetTimerAfter = false;
-      if (action === 'select') {
+      if (action === 'guide') {
+        openExerciseGuide(routine[index]);
+        return;
+      } else if (action === 'select') {
         if (day.activeId !== id) {
           day.activeId = id;
           resetTimerAfter = true;
@@ -944,7 +1866,13 @@
       const requestedType = window.prompt('Exercise type: enter "reps" or "duration"', exercise.type);
       if (requestedType === null) return false;
       const type = requestedType.trim().toLowerCase() === 'duration' ? 'duration' : 'reps';
-      const updated = { ...exercise, name: cleanName, type, completed: false };
+      const updated = {
+        ...exercise,
+        name: cleanName,
+        type,
+        completed: false,
+        libraryId: normalizeSearchText(cleanName) === normalizeSearchText(exercise.name) ? exercise.libraryId : null
+      };
 
       if (type === 'duration') {
         const oldMinutes = exercise.durationSeconds ? Math.floor(exercise.durationSeconds / 60) : 30;
@@ -1358,7 +2286,7 @@
 
     function handleKeyboard(event) {
       const tag = event.target.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (document.querySelector('dialog[open]') || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'VIDEO' || event.ctrlKey || event.metaKey || event.altKey) return;
       if (event.code === 'Space') {
         event.preventDefault();
         toggleTimer();
@@ -1417,6 +2345,39 @@
       elements.copyRoutine.addEventListener('click', openCopyDialog);
       elements.confirmCopy.addEventListener('click', copyRoutineToDay);
       elements.exportButton.addEventListener('click', exportWeek);
+
+      elements.exerciseInput.addEventListener('input', () => {
+        if (selectedLibraryEntry && normalizeSearchText(elements.exerciseInput.value) !== normalizeSearchText(selectedLibraryEntry.name)) {
+          clearLibrarySelection();
+        }
+        renderExerciseSuggestions();
+      });
+      elements.exerciseInput.addEventListener('focus', renderExerciseSuggestions);
+      elements.exerciseInput.addEventListener('keydown', handleExerciseInputKeydown);
+      elements.exerciseSuggestions.addEventListener('mousedown', event => event.preventDefault());
+      elements.exerciseSuggestions.addEventListener('click', event => {
+        const option = event.target.closest('[data-library-id]');
+        if (!option) return;
+        const entry = libraryById.get(option.dataset.libraryId);
+        if (entry) selectLibraryEntry(entry);
+      });
+      document.addEventListener('click', event => {
+        if (!event.target.closest('.exercise-search-wrap')) hideSuggestions();
+      });
+      elements.browseLibrary.addEventListener('click', openLibraryBrowser);
+      elements.closeLibraryDialog.addEventListener('click', () => elements.libraryDialog.close());
+      elements.librarySearchInput.addEventListener('input', renderLibraryBrowser);
+      elements.libraryCategoryFilter.addEventListener('change', renderLibraryBrowser);
+      elements.previewGuide.addEventListener('click', () => selectedLibraryEntry && openExerciseGuide(selectedLibraryEntry));
+      elements.clearLibraryMatch.addEventListener('click', () => {
+        clearLibrarySelection();
+        elements.exerciseInput.focus();
+        showStatus('The exercise will be saved as a custom name.');
+      });
+      elements.activeGuide.addEventListener('click', () => openExerciseGuide(activeExercise()));
+      elements.closeGuideDialog.addEventListener('click', () => elements.guideDialog.close());
+      elements.guideDialog.addEventListener('close', () => { guideRequestToken += 1; });
+
       document.addEventListener('keydown', handleKeyboard);
       document.addEventListener('visibilitychange', updateTimerFromClock);
       elements.installButton.addEventListener('click', handleInstallRequest);
@@ -1438,6 +2399,8 @@
 
     function init() {
       loadState();
+      videoCacheLoad();
+      setExerciseLibrary([], 'starter collection');
       updateExerciseFormFields();
       bindEvents();
       renderDayTabs();
@@ -1446,6 +2409,7 @@
       setTimerMode(preferredTimerMode(), true);
       updateInstallButton();
       void registerServiceWorker();
+      void loadExerciseLibrary();
     }
 
     init();
