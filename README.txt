@@ -31,3 +31,12 @@ Workout routines and progress are stored locally on the device using browser sto
 
 UPDATING
 When replacing files on the website, change CACHE_NAME in sw.js (for example, from weekly-workout-ios-v1 to weekly-workout-ios-v2) so installed devices download the new app files.
+
+
+VERSION 2 FEATURES
+------------------
+- Stopwatch removed; all timers now count down.
+- Sets & reps exercises use the rest countdown.
+- Timed exercises such as walking and running store a duration.
+- Exercise countdown automatically marks a timed exercise complete.
+- Existing saved weekly routines are preserved and treated as sets/reps exercises.

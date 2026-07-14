@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="./icons/icon-32.png">
   <meta name="theme-color" content="#020617">
-  <title>Weekly Workout Tracker</title>
+  <title>Weekly Workout Timer</title>
   <link rel="stylesheet" href="./app.css">
   <style>
     :root { color-scheme: dark; }
@@ -118,18 +118,43 @@
               <input type="text" id="exercise-input" placeholder="Exercise name" maxlength="80" required
                 class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 transition-colors">
             </label>
-            <label class="sm:col-span-2">
-              <span class="sr-only">Target sets</span>
-              <input type="number" id="sets-input" value="3" min="1" max="20" required title="Target sets"
-                class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-center text-slate-100 focus:border-indigo-500 transition-colors">
+            <label class="sm:col-span-6">
+              <span class="sr-only">Exercise type</span>
+              <select id="exercise-type-input" title="Exercise type"
+                class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 focus:border-indigo-500 transition-colors">
+                <option value="reps">Sets &amp; reps</option>
+                <option value="duration">Timed duration</option>
+              </select>
             </label>
-            <label class="sm:col-span-2">
-              <span class="sr-only">Target reps</span>
-              <input type="number" id="reps-input" value="10" min="1" max="999" required title="Target reps"
-                class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-center text-slate-100 focus:border-indigo-500 transition-colors">
-            </label>
-            <button type="submit" class="sm:col-span-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-3 rounded-xl transition-colors">Add</button>
-            <p class="sm:col-span-12 text-xs text-slate-500">Enter exercise name, target sets, and reps for the selected day.</p>
+
+            <div id="reps-fields" class="sm:col-span-12 grid grid-cols-2 gap-2">
+              <label>
+                <span class="block text-xs font-bold text-slate-400 mb-1">Target sets</span>
+                <input type="number" id="sets-input" value="3" min="1" max="20" required
+                  class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-center text-slate-100 focus:border-indigo-500 transition-colors">
+              </label>
+              <label>
+                <span class="block text-xs font-bold text-slate-400 mb-1">Reps per set</span>
+                <input type="number" id="reps-input" value="10" min="1" max="999" required
+                  class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-center text-slate-100 focus:border-indigo-500 transition-colors">
+              </label>
+            </div>
+
+            <div id="duration-fields" hidden class="sm:col-span-12 grid grid-cols-2 gap-2">
+              <label>
+                <span class="block text-xs font-bold text-slate-400 mb-1">Duration minutes</span>
+                <input type="number" id="duration-minutes-input" value="30" min="0" max="1440"
+                  class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-center text-slate-100 focus:border-indigo-500 transition-colors">
+              </label>
+              <label>
+                <span class="block text-xs font-bold text-slate-400 mb-1">Extra seconds</span>
+                <input type="number" id="duration-seconds-input" value="0" min="0" max="59"
+                  class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-center text-slate-100 focus:border-indigo-500 transition-colors">
+              </label>
+            </div>
+
+            <button type="submit" class="sm:col-span-12 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-3 rounded-xl transition-colors">Add exercise</button>
+            <p id="exercise-form-help" class="sm:col-span-12 text-xs text-slate-500">Use sets and reps for strength exercises.</p>
           </form>
 
           <div id="routine-list" class="space-y-3 max-h-[560px] overflow-y-auto pr-1" aria-live="polite"></div>
@@ -144,8 +169,9 @@
             <p id="active-target" class="text-sm text-slate-400 mt-1">No active exercise</p>
           </div>
 
-          <section class="bg-slate-950 rounded-2xl p-5 md:p-6 border border-slate-800 text-center mb-6 shadow-inner" aria-label="Workout timer">
-            <div id="timer-display" class="text-5xl sm:text-6xl font-mono font-black text-slate-100 tracking-wider mb-4" aria-live="polite">00:00</div>
+          <section class="bg-slate-950 rounded-2xl p-5 md:p-6 border border-slate-800 text-center mb-6 shadow-inner" aria-label="Countdown timer">
+            <p id="timer-context" class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">Rest countdown</p>
+            <div id="timer-display" class="text-5xl sm:text-6xl font-mono font-black text-slate-100 tracking-wider mb-4" aria-live="polite">01:00</div>
 
             <div class="flex justify-center gap-3">
               <button id="timer-toggle-btn" type="button" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-xl transition-colors text-sm w-28">Start</button>
@@ -154,11 +180,15 @@
 
             <div class="mt-6 pt-6 border-t border-slate-800 space-y-4">
               <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-800 max-w-xs mx-auto">
-                <button id="mode-up-btn" type="button" class="flex-1 px-3 py-2 rounded-md text-xs font-bold transition-all bg-indigo-600 text-white" aria-pressed="true">Stopwatch</button>
-                <button id="mode-down-btn" type="button" class="flex-1 px-3 py-2 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-slate-200" aria-pressed="false">Rest timer</button>
+                <button id="mode-exercise-btn" type="button" class="flex-1 px-3 py-2 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-slate-200" aria-pressed="false">Exercise</button>
+                <button id="mode-rest-btn" type="button" class="flex-1 px-3 py-2 rounded-md text-xs font-bold transition-all bg-indigo-600 text-white" aria-pressed="true">Rest</button>
               </div>
 
-              <div id="countdown-config" hidden class="space-y-3">
+              <div id="exercise-timer-config" hidden class="space-y-3">
+                <p id="exercise-timer-info" class="text-xs text-slate-400">Choose a timed exercise such as walking or running.</p>
+              </div>
+
+              <div id="rest-timer-config" class="space-y-3">
                 <div class="flex items-center justify-center gap-2 text-xs">
                   <label for="countdown-input" class="text-slate-400 font-medium">Rest duration</label>
                   <input type="number" id="countdown-input" value="60" min="5" max="3600" step="5"
@@ -175,7 +205,7 @@
             </div>
           </section>
 
-          <div class="grid grid-cols-2 gap-4 mb-4">
+          <div id="reps-metrics" class="grid grid-cols-2 gap-4 mb-4">
             <section class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 text-center" aria-label="Sets completed">
               <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Sets Done</span>
               <div id="set-count" class="text-3xl font-black text-slate-100 my-2">0</div>
@@ -195,18 +225,27 @@
             </section>
           </div>
 
+          <section id="duration-panel" hidden class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 text-center mb-4" aria-label="Exercise duration">
+            <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Target Duration</span>
+            <div id="duration-count" class="text-3xl font-black text-slate-100 my-2">00:00</div>
+            <div class="flex gap-2 justify-center">
+              <button type="button" data-duration-change="-60" class="duration-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 h-9 rounded-lg font-bold text-sm">−1 min</button>
+              <button type="button" data-duration-change="60" class="duration-btn bg-indigo-600 hover:bg-indigo-500 border border-indigo-500 px-4 h-9 rounded-lg font-bold text-sm">+1 min</button>
+            </div>
+          </section>
+
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button id="complete-current-btn" type="button" class="bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold px-4 py-3 rounded-xl transition-colors">Complete current</button>
             <button id="next-exercise-btn" type="button" class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-100 font-bold px-4 py-3 rounded-xl transition-colors">Next exercise →</button>
           </div>
 
-          <label class="flex items-center gap-3 mt-4 p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer">
+          <label id="auto-rest-label" class="flex items-center gap-3 mt-4 p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer">
             <input id="auto-rest-checkbox" type="checkbox" class="w-4 h-4 accent-indigo-500">
             <span class="text-sm text-slate-300">Start rest timer automatically after adding a set</span>
           </label>
 
           <p id="status-message" class="mt-4 text-center text-sm text-slate-400 min-h-5" aria-live="polite"></p>
-          <p class="mt-3 text-center text-xs text-slate-600">Keyboard: Space = start/pause, R = reset timer</p>
+          <p class="mt-3 text-center text-xs text-slate-600">Keyboard: Space = start/pause, R = reset countdown</p>
         </div>
       </section>
     </div>
@@ -264,16 +303,16 @@
     ];
 
     const DEFAULT_ROUTINE = [
-      { id: 1, name: 'Barbell Squats', completed: false, reps: 8, targetSets: 3, sets: 0 },
-      { id: 2, name: 'Push-ups', completed: false, reps: 12, targetSets: 3, sets: 0 },
-      { id: 3, name: 'Plank', completed: false, reps: 1, targetSets: 3, sets: 0 }
+      { id: 1, name: 'Barbell Squats', type: 'reps', completed: false, reps: 8, targetSets: 3, sets: 0, durationSeconds: 0 },
+      { id: 2, name: 'Push-ups', type: 'reps', completed: false, reps: 12, targetSets: 3, sets: 0, durationSeconds: 0 },
+      { id: 3, name: 'Walking', type: 'duration', completed: false, reps: 0, targetSets: 0, sets: 0, durationSeconds: 1800 }
     ];
 
     const state = {
       selectedDay: getTodayKey(),
       days: createEmptyWeek(),
-      timerMode: 'up',
-      timerSeconds: 0,
+      timerMode: 'rest',
+      timerSeconds: 60,
       countdownSeconds: 60,
       timerRunning: false,
       timerStartedAt: null,
@@ -292,27 +331,40 @@
       nowTrainingDay: document.getElementById('now-training-day'),
       exerciseForm: document.getElementById('exercise-form'),
       exerciseInput: document.getElementById('exercise-input'),
+      exerciseTypeInput: document.getElementById('exercise-type-input'),
+      repsFields: document.getElementById('reps-fields'),
+      durationFields: document.getElementById('duration-fields'),
       setsInput: document.getElementById('sets-input'),
       repsInput: document.getElementById('reps-input'),
+      durationMinutesInput: document.getElementById('duration-minutes-input'),
+      durationSecondsInput: document.getElementById('duration-seconds-input'),
+      exerciseFormHelp: document.getElementById('exercise-form-help'),
       routineList: document.getElementById('routine-list'),
       activeTitle: document.getElementById('active-exercise-title'),
       activeTarget: document.getElementById('active-target'),
+      repsMetrics: document.getElementById('reps-metrics'),
+      durationPanel: document.getElementById('duration-panel'),
       setDisplay: document.getElementById('set-count'),
       repDisplay: document.getElementById('rep-count'),
+      durationDisplay: document.getElementById('duration-count'),
       progressBar: document.getElementById('progress-bar'),
       progressText: document.getElementById('progress-text'),
       progressTrack: document.getElementById('progress-track'),
       sessionSummary: document.getElementById('session-summary'),
+      timerContext: document.getElementById('timer-context'),
       timerDisplay: document.getElementById('timer-display'),
       timerToggle: document.getElementById('timer-toggle-btn'),
       timerReset: document.getElementById('timer-reset-btn'),
-      modeUp: document.getElementById('mode-up-btn'),
-      modeDown: document.getElementById('mode-down-btn'),
-      countdownConfig: document.getElementById('countdown-config'),
+      modeExercise: document.getElementById('mode-exercise-btn'),
+      modeRest: document.getElementById('mode-rest-btn'),
+      exerciseTimerConfig: document.getElementById('exercise-timer-config'),
+      exerciseTimerInfo: document.getElementById('exercise-timer-info'),
+      restTimerConfig: document.getElementById('rest-timer-config'),
       countdownInput: document.getElementById('countdown-input'),
       completeCurrent: document.getElementById('complete-current-btn'),
       nextExercise: document.getElementById('next-exercise-btn'),
       autoRest: document.getElementById('auto-rest-checkbox'),
+      autoRestLabel: document.getElementById('auto-rest-label'),
       resetSession: document.getElementById('reset-session-btn'),
       clearRoutine: document.getElementById('clear-routine-btn'),
       copyRoutine: document.getElementById('copy-routine-btn'),
@@ -404,14 +456,17 @@
       if (!raw || typeof raw !== 'object') return null;
       const name = typeof raw.name === 'string' ? raw.name.trim().slice(0, 80) : '';
       if (!name) return null;
+      const type = raw.type === 'duration' ? 'duration' : 'reps';
 
       return {
         id: Number.isFinite(Number(raw.id)) ? Number(raw.id) : fallbackId,
         name,
+        type,
         completed: Boolean(raw.completed),
-        reps: parseInteger(raw.reps, 10, 1, 999),
-        targetSets: parseInteger(raw.targetSets, 3, 1, 20),
-        sets: parseInteger(raw.sets, 0, 0, 999)
+        reps: type === 'reps' ? parseInteger(raw.reps, 10, 1, 999) : 0,
+        targetSets: type === 'reps' ? parseInteger(raw.targetSets, 3, 1, 20) : 0,
+        sets: type === 'reps' ? parseInteger(raw.sets, 0, 0, 999) : 0,
+        durationSeconds: type === 'duration' ? parseInteger(raw.durationSeconds, 1800, 5, 86400) : 0
       };
     }
 
@@ -478,7 +533,6 @@
         state.selectedDay = today;
       }
 
-      state.timerSeconds = 0;
       elements.countdownInput.value = String(state.countdownSeconds);
       elements.autoRest.checked = state.autoRest;
       saveState();
@@ -490,7 +544,7 @@
 
     function saveState() {
       const payload = {
-        version: 1,
+        version: 2,
         selectedDay: state.selectedDay,
         days: state.days,
         countdownSeconds: state.countdownSeconds,
@@ -512,17 +566,41 @@
       }`;
     }
 
+    function formatTime(seconds) {
+      const safeSeconds = Math.max(0, Math.floor(seconds));
+      const hours = Math.floor(safeSeconds / 3600);
+      const minutes = Math.floor((safeSeconds % 3600) / 60);
+      const secs = safeSeconds % 60;
+      return hours > 0
+        ? `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+        : `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function formatCompactDuration(seconds) {
+      const minutes = Math.round(seconds / 60);
+      if (minutes < 60) return `${minutes} min`;
+      const hours = Math.floor(minutes / 60);
+      const remainder = minutes % 60;
+      return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
+    }
+
     function getRoutineStats(routine) {
       const total = routine.length;
       const completed = routine.filter(item => item.completed).length;
-      const percentage = total ? Math.round((completed / total) * 100) : 0;
-      const totalSets = routine.reduce((sum, item) => sum + item.sets, 0);
-      return { total, completed, percentage, totalSets };
+      const totalSets = routine.reduce((sum, item) => sum + (item.type === 'reps' ? item.sets : 0), 0);
+      const plannedDuration = routine.reduce((sum, item) => sum + (item.type === 'duration' ? item.durationSeconds : 0), 0);
+      return {
+        total,
+        completed,
+        totalSets,
+        plannedDuration,
+        percentage: total > 0 ? Math.round((completed / total) * 100) : 0
+      };
     }
 
     function renderDayTabs() {
-      elements.dayTabs.replaceChildren();
       const today = getTodayKey();
+      elements.dayTabs.replaceChildren();
 
       DAYS.forEach(day => {
         const stats = getRoutineStats(state.days[day.key].routine);
@@ -622,7 +700,9 @@
         }`;
 
         const meta = document.createElement('p');
-        meta.textContent = `${exercise.sets}/${exercise.targetSets} sets • ${exercise.reps} reps`;
+        meta.textContent = exercise.type === 'duration'
+          ? `Timed exercise • ${formatTime(exercise.durationSeconds)}`
+          : `${exercise.sets}/${exercise.targetSets} sets • ${exercise.reps} reps`;
         meta.className = 'text-xs text-slate-400 mt-1';
 
         textButton.append(name, meta);
@@ -655,7 +735,10 @@
       elements.progressText.textContent = `${stats.completed}/${stats.total} completed (${stats.percentage}%)`;
       elements.progressTrack.setAttribute('aria-valuenow', String(stats.percentage));
       elements.progressHeading.textContent = `${selectedInfo.name} Progress`;
-      elements.sessionSummary.textContent = `${stats.total} exercise${stats.total === 1 ? '' : 's'} • ${stats.totalSets} set${stats.totalSets === 1 ? '' : 's'} completed`;
+
+      const dailyParts = [`${stats.total} exercise${stats.total === 1 ? '' : 's'}`, `${stats.totalSets} set${stats.totalSets === 1 ? '' : 's'} completed`];
+      if (stats.plannedDuration > 0) dailyParts.push(`${formatCompactDuration(stats.plannedDuration)} timed`);
+      elements.sessionSummary.textContent = dailyParts.join(' • ');
       elements.weekSummary.textContent = `${weekStats.total} exercises across ${trainingDays} training day${trainingDays === 1 ? '' : 's'} • ${weekStats.completed} completed`;
     }
 
@@ -667,6 +750,8 @@
     function renderActivePanel() {
       const active = activeExercise();
       const disabled = !active;
+      const isReps = active?.type === 'reps';
+      const isDuration = active?.type === 'duration';
       const selectedInfo = dayInfo();
 
       elements.selectedDayLabel.textContent = selectedInfo.name;
@@ -678,25 +763,40 @@
         elements.activeTarget.textContent = currentRoutine().length ? 'No active exercise' : `No exercises planned for ${selectedInfo.name}`;
         elements.setDisplay.textContent = '0';
         elements.repDisplay.textContent = '0';
+        elements.durationDisplay.textContent = '00:00';
         elements.completeCurrent.textContent = 'Complete current';
+      } else if (isDuration) {
+        elements.activeTitle.textContent = active.name;
+        elements.activeTarget.textContent = `Timed exercise • ${formatTime(active.durationSeconds)}`;
+        elements.durationDisplay.textContent = formatTime(active.durationSeconds);
+        elements.completeCurrent.textContent = active.completed ? 'Mark incomplete' : 'Complete current';
       } else {
         elements.activeTitle.textContent = active.name;
-        elements.activeTarget.textContent = `${active.sets} of ${active.targetSets} sets completed`;
+        elements.activeTarget.textContent = `${active.sets} of ${active.targetSets} sets • ${active.reps} reps each`;
         elements.setDisplay.textContent = String(active.sets);
         elements.repDisplay.textContent = String(active.reps);
         elements.completeCurrent.textContent = active.completed ? 'Mark incomplete' : 'Complete current';
       }
 
+      elements.repsMetrics.hidden = !isReps;
+      elements.durationPanel.hidden = !isDuration;
+      elements.autoRestLabel.hidden = !isReps;
+      elements.modeExercise.disabled = !isDuration;
+      elements.modeExercise.classList.toggle('opacity-40', !isDuration);
+      elements.modeExercise.classList.toggle('cursor-not-allowed', !isDuration);
+
       document.querySelectorAll('.metric-btn').forEach(button => {
-        button.disabled = disabled;
-        button.classList.toggle('opacity-40', disabled);
-        button.classList.toggle('cursor-not-allowed', disabled);
+        button.disabled = !isReps;
+      });
+      document.querySelectorAll('.duration-btn').forEach(button => {
+        button.disabled = !isDuration;
       });
       elements.completeCurrent.disabled = disabled;
       elements.nextExercise.disabled = currentRoutine().length < 2;
       elements.resetSession.disabled = currentRoutine().length === 0;
       elements.clearRoutine.disabled = currentRoutine().length === 0;
       elements.copyRoutine.disabled = currentRoutine().length === 0;
+      updateTimerLabels();
     }
 
     function syncUI() {
@@ -706,36 +806,72 @@
       renderActivePanel();
     }
 
+    function preferredTimerMode() {
+      return activeExercise()?.type === 'duration' ? 'exercise' : 'rest';
+    }
+
+    function configureTimerForActive() {
+      stopTimer(false);
+      setTimerMode(preferredTimerMode(), true);
+    }
+
     function selectDay(dayKey) {
       if (!DAYS.some(day => day.key === dayKey) || dayKey === state.selectedDay) return;
-      stopTimer();
+      stopTimer(false);
       state.selectedDay = dayKey;
-      resetTimer(false);
       syncUI();
+      configureTimerForActive();
       showStatus(`${dayInfo().name} selected.`);
+    }
+
+    function updateExerciseFormFields() {
+      const isDuration = elements.exerciseTypeInput.value === 'duration';
+      elements.repsFields.hidden = isDuration;
+      elements.durationFields.hidden = !isDuration;
+      elements.setsInput.required = !isDuration;
+      elements.repsInput.required = !isDuration;
+      elements.durationMinutesInput.required = isDuration;
+      elements.exerciseFormHelp.textContent = isDuration
+        ? 'Use timed duration for walking, running, cycling, stretching, or similar exercises.'
+        : 'Use sets and reps for strength exercises.';
     }
 
     function addExercise(event) {
       event.preventDefault();
       const name = elements.exerciseInput.value.trim().slice(0, 80);
-      const targetSets = parseInteger(elements.setsInput.value, 3, 1, 20);
-      const reps = parseInteger(elements.repsInput.value, 10, 1, 999);
+      const type = elements.exerciseTypeInput.value === 'duration' ? 'duration' : 'reps';
       if (!name) return;
 
-      const exercise = {
-        id: uniqueId(),
-        name,
-        completed: false,
-        reps,
-        targetSets,
-        sets: 0
-      };
+      let exercise;
+      if (type === 'duration') {
+        const minutes = parseInteger(elements.durationMinutesInput.value, 0, 0, 1440);
+        const seconds = parseInteger(elements.durationSecondsInput.value, 0, 0, 59);
+        const durationSeconds = minutes * 60 + seconds;
+        if (durationSeconds < 5) {
+          showStatus('Timed exercises need a duration of at least 5 seconds.', 'error');
+          return;
+        }
+        exercise = {
+          id: uniqueId(), name, type, completed: false,
+          reps: 0, targetSets: 0, sets: 0, durationSeconds: clamp(durationSeconds, 5, 86400)
+        };
+      } else {
+        exercise = {
+          id: uniqueId(), name, type, completed: false,
+          reps: parseInteger(elements.repsInput.value, 10, 1, 999),
+          targetSets: parseInteger(elements.setsInput.value, 3, 1, 20),
+          sets: 0, durationSeconds: 0
+        };
+      }
+
       const day = currentDayState();
+      const becomesActive = day.activeId === null;
       day.routine.push(exercise);
-      if (day.activeId === null) day.activeId = exercise.id;
+      if (becomesActive) day.activeId = exercise.id;
 
       elements.exerciseInput.value = '';
       syncUI();
+      if (becomesActive) configureTimerForActive();
       elements.exerciseInput.focus();
       showStatus(`${name} added to ${dayInfo().name}.`, 'success');
     }
@@ -752,8 +888,12 @@
       if (index < 0) return;
 
       const action = control.dataset.action;
+      let resetTimerAfter = false;
       if (action === 'select') {
-        day.activeId = id;
+        if (day.activeId !== id) {
+          day.activeId = id;
+          resetTimerAfter = true;
+        }
       } else if (action === 'toggle') {
         routine[index].completed = !routine[index].completed;
       } else if (action === 'up' && index > 0) {
@@ -761,52 +901,77 @@
       } else if (action === 'down' && index < routine.length - 1) {
         [routine[index + 1], routine[index]] = [routine[index], routine[index + 1]];
       } else if (action === 'edit') {
-        editExercise(index);
+        resetTimerAfter = editExercise(index) && day.activeId === id;
       } else if (action === 'delete') {
-        deleteExercise(index);
+        const wasActive = day.activeId === id;
+        if (deleteExercise(index)) resetTimerAfter = wasActive;
       }
 
       syncUI();
+      if (resetTimerAfter) configureTimerForActive();
     }
 
     function editExercise(index) {
       const exercise = currentRoutine()[index];
       const newName = window.prompt('Exercise name:', exercise.name);
-      if (newName === null) return;
+      if (newName === null) return false;
       const cleanName = newName.trim().slice(0, 80);
       if (!cleanName) {
         showStatus('Exercise name cannot be empty.', 'error');
-        return;
+        return false;
       }
 
-      const newTargetSets = window.prompt('Target sets:', String(exercise.targetSets));
-      if (newTargetSets === null) return;
-      const newReps = window.prompt('Target reps:', String(exercise.reps));
-      if (newReps === null) return;
+      const requestedType = window.prompt('Exercise type: enter "reps" or "duration"', exercise.type);
+      if (requestedType === null) return false;
+      const type = requestedType.trim().toLowerCase() === 'duration' ? 'duration' : 'reps';
+      const updated = { ...exercise, name: cleanName, type, completed: false };
 
-      exercise.name = cleanName;
-      exercise.targetSets = parseInteger(newTargetSets, exercise.targetSets, 1, 20);
-      exercise.reps = parseInteger(newReps, exercise.reps, 1, 999);
-      if (exercise.sets < exercise.targetSets) exercise.completed = false;
+      if (type === 'duration') {
+        const oldMinutes = exercise.durationSeconds ? Math.floor(exercise.durationSeconds / 60) : 30;
+        const oldSeconds = exercise.durationSeconds ? exercise.durationSeconds % 60 : 0;
+        const minutesInput = window.prompt('Duration minutes:', String(oldMinutes));
+        if (minutesInput === null) return false;
+        const secondsInput = window.prompt('Extra seconds (0–59):', String(oldSeconds));
+        if (secondsInput === null) return false;
+        const minutes = parseInteger(minutesInput, oldMinutes, 0, 1440);
+        const seconds = parseInteger(secondsInput, oldSeconds, 0, 59);
+        updated.durationSeconds = clamp(Math.max(5, minutes * 60 + seconds), 5, 86400);
+        updated.reps = 0;
+        updated.targetSets = 0;
+        updated.sets = 0;
+      } else {
+        const newTargetSets = window.prompt('Target sets:', String(exercise.targetSets || 3));
+        if (newTargetSets === null) return false;
+        const newReps = window.prompt('Reps per set:', String(exercise.reps || 10));
+        if (newReps === null) return false;
+        updated.targetSets = parseInteger(newTargetSets, exercise.targetSets || 3, 1, 20);
+        updated.reps = parseInteger(newReps, exercise.reps || 10, 1, 999);
+        updated.sets = type === exercise.type ? clamp(exercise.sets || 0, 0, 999) : 0;
+        updated.durationSeconds = 0;
+      }
+
+      currentRoutine()[index] = updated;
       showStatus(`${cleanName} updated.`, 'success');
+      return true;
     }
 
     function deleteExercise(index) {
       const routine = currentRoutine();
       const day = currentDayState();
       const exercise = routine[index];
-      if (!window.confirm(`Delete “${exercise.name}” from ${dayInfo().name}?`)) return;
+      if (!window.confirm(`Delete “${exercise.name}” from ${dayInfo().name}?`)) return false;
 
       routine.splice(index, 1);
       if (day.activeId === exercise.id) {
         day.activeId = routine[index]?.id ?? routine[index - 1]?.id ?? null;
       }
       showStatus(`${exercise.name} deleted.`);
+      return true;
     }
 
     function adjustMetric(type, change) {
       const active = activeExercise();
-      if (!active) return;
+      if (!active || active.type !== 'reps') return;
 
       if (type === 'sets') {
         active.sets = Math.max(0, active.sets + change);
@@ -814,7 +979,7 @@
         if (active.sets < active.targetSets && change < 0) active.completed = false;
 
         if (change > 0 && state.autoRest) {
-          setTimerMode('down');
+          setTimerMode('rest');
           resetTimer(false);
           startTimer();
         }
@@ -823,6 +988,15 @@
       }
 
       syncUI();
+    }
+
+    function adjustDuration(change) {
+      const active = activeExercise();
+      if (!active || active.type !== 'duration') return;
+      active.durationSeconds = clamp(active.durationSeconds + change, 5, 86400);
+      active.completed = false;
+      syncUI();
+      if (state.timerMode === 'exercise') resetTimer(false);
     }
 
     function selectNextExercise() {
@@ -839,6 +1013,7 @@
           : (Math.max(currentIndex, 0) + 1) % routine.length;
       day.activeId = routine[nextIndex].id;
       syncUI();
+      configureTimerForActive();
     }
 
     function toggleCurrentCompletion() {
@@ -849,26 +1024,47 @@
       showStatus(active.completed ? `${active.name} completed!` : `${active.name} marked incomplete.`, active.completed ? 'success' : 'info');
     }
 
-    function setTimerMode(mode) {
-      if (state.timerRunning || !['up', 'down'].includes(mode)) return;
+    function getTimerDefaultSeconds(mode = state.timerMode) {
+      if (mode === 'exercise') {
+        const active = activeExercise();
+        return active?.type === 'duration' ? active.durationSeconds : 0;
+      }
+      return state.countdownSeconds;
+    }
+
+    function setTimerMode(mode, force = false) {
+      if (state.timerRunning && !force) return;
+      if (!['exercise', 'rest'].includes(mode)) return;
+      if (mode === 'exercise' && activeExercise()?.type !== 'duration') mode = 'rest';
+
       state.timerMode = mode;
-      elements.modeUp.setAttribute('aria-pressed', String(mode === 'up'));
-      elements.modeDown.setAttribute('aria-pressed', String(mode === 'down'));
-      elements.modeUp.className = `flex-1 px-3 py-2 rounded-md text-xs font-bold transition-all ${mode === 'up' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`;
-      elements.modeDown.className = `flex-1 px-3 py-2 rounded-md text-xs font-bold transition-all ${mode === 'down' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`;
-      elements.countdownConfig.hidden = mode !== 'down';
-      state.timerSeconds = mode === 'up' ? 0 : state.countdownSeconds;
+      elements.modeExercise.setAttribute('aria-pressed', String(mode === 'exercise'));
+      elements.modeRest.setAttribute('aria-pressed', String(mode === 'rest'));
+      elements.modeExercise.className = `flex-1 px-3 py-2 rounded-md text-xs font-bold transition-all ${mode === 'exercise' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`;
+      elements.modeRest.className = `flex-1 px-3 py-2 rounded-md text-xs font-bold transition-all ${mode === 'rest' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`;
+      if (activeExercise()?.type !== 'duration') {
+        elements.modeExercise.classList.add('opacity-40', 'cursor-not-allowed');
+        elements.modeExercise.disabled = true;
+      }
+      elements.exerciseTimerConfig.hidden = mode !== 'exercise';
+      elements.restTimerConfig.hidden = mode !== 'rest';
+      state.timerSeconds = getTimerDefaultSeconds(mode);
+      updateTimerLabels();
+      updateTimerButton();
       formatTimerDisplay();
     }
 
-    function formatTime(seconds) {
-      const safeSeconds = Math.max(0, Math.floor(seconds));
-      const hours = Math.floor(safeSeconds / 3600);
-      const minutes = Math.floor((safeSeconds % 3600) / 60);
-      const secs = safeSeconds % 60;
-      return hours > 0
-        ? `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
-        : `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    function updateTimerLabels() {
+      const active = activeExercise();
+      if (state.timerMode === 'exercise' && active?.type === 'duration') {
+        elements.timerContext.textContent = `Exercise countdown • ${active.name}`;
+        elements.exerciseTimerInfo.textContent = `${active.name} will run for ${formatTime(active.durationSeconds)} and be marked complete when time reaches zero.`;
+      } else {
+        elements.timerContext.textContent = 'Rest countdown';
+        elements.exerciseTimerInfo.textContent = active?.type === 'duration'
+          ? `${active.name} duration: ${formatTime(active.durationSeconds)}`
+          : 'Choose a timed exercise such as walking or running.';
+      }
     }
 
     function formatTimerDisplay() {
@@ -881,25 +1077,25 @@
     function updateTimerFromClock() {
       if (!state.timerRunning || state.timerStartedAt === null) return;
       const elapsed = Math.floor((Date.now() - state.timerStartedAt) / 1000);
+      state.timerSeconds = Math.max(0, state.timerStartValue - elapsed);
 
-      if (state.timerMode === 'up') {
-        state.timerSeconds = state.timerStartValue + elapsed;
-      } else {
-        state.timerSeconds = Math.max(0, state.timerStartValue - elapsed);
-        if (state.timerSeconds === 0) {
-          stopTimer(false);
-          timerFinished();
-        }
+      if (state.timerSeconds === 0) {
+        const finishedMode = state.timerMode;
+        stopTimer(false);
+        timerFinished(finishedMode);
       }
       formatTimerDisplay();
     }
 
     function startTimer() {
       if (state.timerRunning) return;
-      void ensureAudioReady();
-      if (state.timerMode === 'down' && state.timerSeconds <= 0) {
-        state.timerSeconds = state.countdownSeconds;
+      const defaultSeconds = getTimerDefaultSeconds();
+      if (defaultSeconds <= 0) {
+        showStatus('Choose a timed exercise or set a rest duration first.', 'error');
+        return;
       }
+      void ensureAudioReady();
+      if (state.timerSeconds <= 0) state.timerSeconds = defaultSeconds;
       state.timerRunning = true;
       state.timerStartedAt = Date.now();
       state.timerStartValue = state.timerSeconds;
@@ -911,9 +1107,7 @@
     function stopTimer(updateDisplay = true) {
       if (state.timerRunning && state.timerStartedAt !== null) {
         const elapsed = Math.floor((Date.now() - state.timerStartedAt) / 1000);
-        state.timerSeconds = state.timerMode === 'up'
-          ? state.timerStartValue + elapsed
-          : Math.max(0, state.timerStartValue - elapsed);
+        state.timerSeconds = Math.max(0, state.timerStartValue - elapsed);
       }
       window.clearInterval(state.timerInterval);
       state.timerInterval = null;
@@ -932,24 +1126,40 @@
       state.timerInterval = null;
       state.timerRunning = false;
       state.timerStartedAt = null;
-      state.timerSeconds = state.timerMode === 'up' ? 0 : state.countdownSeconds;
+      state.timerSeconds = getTimerDefaultSeconds();
       updateTimerButton();
+      updateTimerLabels();
       formatTimerDisplay();
-      if (showMessage) showStatus('Timer reset.');
+      if (showMessage) showStatus('Countdown reset.');
     }
 
     function updateTimerButton() {
+      const hasDuration = getTimerDefaultSeconds() > 0;
+      elements.timerToggle.disabled = !hasDuration;
       elements.timerToggle.textContent = state.timerRunning ? 'Pause' : 'Start';
       elements.timerToggle.className = `${
         state.timerRunning ? 'bg-amber-600 hover:bg-amber-500' : 'bg-emerald-600 hover:bg-emerald-500'
       } text-white font-bold px-6 py-2.5 rounded-xl transition-colors text-sm w-28`;
+      elements.timerToggle.classList.toggle('opacity-40', !hasDuration);
+      elements.timerToggle.classList.toggle('cursor-not-allowed', !hasDuration);
     }
 
-    function timerFinished() {
+    function timerFinished(mode) {
       elements.timerDisplay.classList.remove('timer-finished');
       void elements.timerDisplay.offsetWidth;
       elements.timerDisplay.classList.add('timer-finished');
       playBeep();
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
+      if (mode === 'exercise') {
+        const active = activeExercise();
+        if (active?.type === 'duration') {
+          active.completed = true;
+          syncUI();
+          showStatus(`${active.name} complete!`, 'success');
+          return;
+        }
+      }
       showStatus('Rest complete. Time for the next set!', 'success');
     }
 
@@ -971,17 +1181,20 @@
       const audioContext = await ensureAudioReady();
       if (!audioContext) return;
       try {
-        const oscillator = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        oscillator.type = 'sine';
-        oscillator.frequency.value = 880;
-        gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.18, audioContext.currentTime + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.45);
-        oscillator.connect(gain);
-        gain.connect(audioContext.destination);
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.5);
+        const now = audioContext.currentTime;
+        [0, 0.22].forEach(offset => {
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          oscillator.type = 'sine';
+          oscillator.frequency.value = 880;
+          gain.gain.setValueAtTime(0.0001, now + offset);
+          gain.gain.exponentialRampToValueAtTime(0.18, now + offset + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.18);
+          oscillator.connect(gain);
+          gain.connect(audioContext.destination);
+          oscillator.start(now + offset);
+          oscillator.stop(now + offset + 0.2);
+        });
       } catch (error) {
         // The visual alert still works if audio is blocked.
       }
@@ -990,8 +1203,10 @@
     function updateCountdown(value) {
       state.countdownSeconds = parseInteger(value, 60, 5, 3600);
       elements.countdownInput.value = String(state.countdownSeconds);
-      if (!state.timerRunning && state.timerMode === 'down') {
+      if (!state.timerRunning && state.timerMode === 'rest') {
         state.timerSeconds = state.countdownSeconds;
+        updateTimerLabels();
+        updateTimerButton();
         formatTimerDisplay();
       }
       saveState();
@@ -1000,14 +1215,14 @@
     function resetSession() {
       const routine = currentRoutine();
       if (!routine.length) return;
-      if (!window.confirm(`Reset all completed sets and checkmarks for ${dayInfo().name}?`)) return;
+      if (!window.confirm(`Reset all progress and checkmarks for ${dayInfo().name}?`)) return;
       routine.forEach(item => {
-        item.sets = 0;
+        if (item.type === 'reps') item.sets = 0;
         item.completed = false;
       });
       currentDayState().activeId = routine[0]?.id ?? null;
-      resetTimer(false);
       syncUI();
+      configureTimerForActive();
       showStatus(`${dayInfo().name} progress reset.`, 'success');
     }
 
@@ -1018,6 +1233,7 @@
       currentDayState().routine = [];
       currentDayState().activeId = null;
       syncUI();
+      configureTimerForActive();
       showStatus(`${dayInfo().name} routine cleared.`);
     }
 
@@ -1030,7 +1246,7 @@
         option.textContent = `${day.name}${state.days[day.key].routine.length ? ` (${state.days[day.key].routine.length} exercises)` : ''}`;
         elements.copyTargetDay.appendChild(option);
       });
-      elements.copyDialogText.textContent = `Copy all exercises from ${dayInfo().name} to another day. Completed sets will reset.`;
+      elements.copyDialogText.textContent = `Copy all exercises from ${dayInfo().name} to another day. Progress will reset.`;
       elements.copyOverwrite.checked = false;
       elements.copyDialog.showModal();
     }
@@ -1052,7 +1268,7 @@
         ...exercise,
         id: uniqueId(),
         completed: false,
-        sets: 0
+        sets: exercise.type === 'reps' ? 0 : 0
       }));
       targetDay.routine = copied;
       targetDay.activeId = copied[0]?.id ?? null;
@@ -1067,7 +1283,7 @@
         selectedDay: state.selectedDay,
         days: state.days,
         settings: {
-          countdownSeconds: state.countdownSeconds,
+          restCountdownSeconds: state.countdownSeconds,
           autoRest: state.autoRest
         }
       };
@@ -1100,6 +1316,7 @@
         if (button) selectDay(button.dataset.day);
       });
       elements.todayButton.addEventListener('click', () => selectDay(getTodayKey()));
+      elements.exerciseTypeInput.addEventListener('change', updateExerciseFormFields);
       elements.exerciseForm.addEventListener('submit', addExercise);
       elements.routineList.addEventListener('click', handleRoutineAction);
 
@@ -1108,11 +1325,14 @@
           adjustMetric(button.dataset.metric, Number(button.dataset.change));
         });
       });
+      document.querySelectorAll('.duration-btn').forEach(button => {
+        button.addEventListener('click', () => adjustDuration(Number(button.dataset.durationChange)));
+      });
 
       elements.timerToggle.addEventListener('click', toggleTimer);
       elements.timerReset.addEventListener('click', () => resetTimer());
-      elements.modeUp.addEventListener('click', () => setTimerMode('up'));
-      elements.modeDown.addEventListener('click', () => setTimerMode('down'));
+      elements.modeExercise.addEventListener('click', () => setTimerMode('exercise'));
+      elements.modeRest.addEventListener('click', () => setTimerMode('rest'));
       elements.countdownInput.addEventListener('change', event => updateCountdown(event.target.value));
 
       document.querySelectorAll('.rest-preset').forEach(button => {
@@ -1151,11 +1371,12 @@
 
     function init() {
       loadState();
+      updateExerciseFormFields();
       bindEvents();
       renderDayTabs();
       renderRoutine();
       renderActivePanel();
-      formatTimerDisplay();
+      setTimerMode(preferredTimerMode(), true);
       updateInstallButton();
       void registerServiceWorker();
     }

@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Weekly Workout Tracker",
   "short_name": "Workout",
-  "description": "Plan and record separate workout routines for every day of the week.",
+  "description": "Plan weekly sets-and-reps workouts and timed exercises with exercise and rest countdowns.",
   "lang": "en",
   "start_url": "./index.html",
   "scope": "./",
